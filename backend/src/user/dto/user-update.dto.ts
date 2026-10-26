@@ -1,6 +1,6 @@
 import { IsEmail, IsInt, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
-export class UserUpsertDto {
+export class UserUpdateDto {
 	@IsString({ message: 'Имя должно быть строкой' })
 	@IsNotEmpty({ message: 'Имя обязательно для заполнения' })
 	name: string;

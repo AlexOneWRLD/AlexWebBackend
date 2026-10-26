@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsInt, IsNotEmpty, IsString, MinLength, Validate } from 'class-validator';
+import {
+	IsEmail,
+	IsInt,
+	IsNotEmpty,
+	IsString,
+	MaxLength,
+	MinLength,
+	Validate
+} from 'class-validator';
 import { IsPasswordMatchingConstraint } from '../../../libs/common/decorators/is-password-matching-constrain.decorator';
 
 export class RegisterDto {
@@ -21,6 +29,14 @@ export class RegisterDto {
 	email: string;
 
 	@ApiProperty({
+		description: 'Логин',
+		example: 'AlexOneWRLD'
+	})
+	@IsString({ message: 'Логин должен быть строкой' })
+	@IsNotEmpty({ message: 'Логин обязателен для заполнения' })
+	login: string;
+
+	@ApiProperty({
 		description: 'Возраст',
 		example: '28'
 	})
@@ -34,6 +50,7 @@ export class RegisterDto {
 	})
 	@IsString({ message: 'Описание должно быть строкой' })
 	@IsNotEmpty({ message: 'Описание обязательно для заполнения' })
+	@MaxLength(1000)
 	description: string;
 
 	@ApiProperty({

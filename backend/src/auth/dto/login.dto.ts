@@ -3,13 +3,12 @@ import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
 	@ApiProperty({
-		description: 'Почтовый адрес',
-		example: 'abwgt@gmail.ru'
+		description: 'Логин',
+		example: 'AlexOneWRLD'
 	})
-	@IsString({ message: 'Email должно быть строкой' })
-	@IsEmail({}, { message: 'Некорректный формат email' })
-	@IsNotEmpty({ message: 'Email обязателен для заполнения' })
-	email: string;
+	@IsString({ message: 'Логин должен быть строкой' })
+	@IsNotEmpty({ message: 'Логин обязателен для заполнения' })
+	login: string;
 
 	@ApiProperty({
 		description: 'Пароль от аккаунта',

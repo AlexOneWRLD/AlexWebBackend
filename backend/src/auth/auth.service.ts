@@ -35,15 +35,25 @@ export class AuthService {
 	}
 
 	public async register(req: Request, res: Response, dto: RegisterDto) {
-		const isExist = await this.userService.findByEmail(dto.email);
+		const isExistLogin = await this.userService.findByLogin(dto.login);
 
-		if (isExist) {
+		if (isExistLogin) {
+			throw new ConflictException(
+				'Регистрация не удалась. Пользователь с таким логином уже существует. Пожалуйста, используйте другой логин или войдите в систему.'
+			);
+		}
+
+		const isExistEmail = await this.userService.findByEmail(dto.email);
+
+		if (isExistEmail) {
 			throw new ConflictException(
 				'Регистрация не удалась. Пользователь с таким email уже существует. Пожалуйста, используйте другой email или войдите в систему.'
 			);
 		}
 
 		const newUser = await this.userService.createUser(dto);
+
+		await this.regenerateSession(req);
 
 		req.session.userId = newUser.id;
 
@@ -53,7 +63,7 @@ export class AuthService {
 	}
 
 	public async login(req: Request, res: Response, dto: LoginDto) {
-		const user = await this.userService.findByEmail(dto.email);
+		const user = await this.userService.findByLogin(dto.login);
 
 		if (!user || user.deletedAt !== null || !user.password) {
 			throw new UnauthorizedException('Неверный логин или пароль');
@@ -94,6 +104,10 @@ export class AuthService {
 
 		if (!user) {
 			throw new NotFoundException('Пользователь не найден');
+		}
+
+		if (user.deletedAt !== null) {
+			throw new NotFoundException('Пользователь удален');
 		}
 
 		return user;

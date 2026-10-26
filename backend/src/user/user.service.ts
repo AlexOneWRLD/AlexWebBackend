@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { hash } from 'argon2';
 import { RegisterDto } from '@/auth/dto/register.dto';
 import { UsersQueryDto } from '@/user/dto/users-query.dto';
@@ -33,20 +34,51 @@ export class UserService {
 	}
 
 	public async findByEmail(email: string) {
-		return await this.userRepository.findByEmail(email);
+		const userByEmail = await this.userRepository.findByEmail(email);
+
+		if (!userByEmail) {
+			throw new NotFoundException('Прользователь не найден, проверьте введенные данные');
+		}
+
+		return userByEmail;
+	}
+
+	public async findByLogin(login: string) {
+		const userByLogin = await this.userRepository.findByLogin(login);
+
+		if (!userByLogin) {
+			throw new NotFoundException('Прользователь не найден, проверьте введенные данные');
+		}
+
+		return userByLogin;
 	}
 
 	//Баланс и картинку доработать
 	public async createUser(dto: RegisterDto) {
-		return await this.userRepository.create({
-			name: dto.name,
-			email: dto.email,
-			password: dto.password ? await hash(dto.password) : '',
-			age: dto.age,
-			description: dto.description,
-			picture: '',
-			balance: 0
-		});
+		const isExistEmail = await this.userRepository.findByEmail(dto.email);
+
+		if (isExistEmail) {
+			throw new ConflictException('Пользователь с таким email уже существует');
+		}
+
+		try {
+			return await this.userRepository.create({
+				name: dto.name,
+				email: dto.email,
+				login: dto.login,
+				password: await hash(dto.password),
+				age: dto.age,
+				description: dto.description,
+				picture: '',
+				balance: 0
+			});
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+				throw new ConflictException('Пользователь с таким email уже существует');
+			}
+
+			return error;
+		}
 	}
 
 	//Баланс и картинку доработать
@@ -54,6 +86,7 @@ export class UserService {
 		return await this.userRepository.update(id, {
 			name: dto.name,
 			email: dto.email,
+			login: dto.login,
 			password: dto.password ? await hash(dto.password) : dto.password,
 			age: dto.age,
 			description: dto.description,
@@ -63,6 +96,12 @@ export class UserService {
 	}
 
 	public async deleteUser(id: string) {
-		return await this.userRepository.softDelete(id);
+		const deleteUser = await this.userRepository.softDelete(id);
+
+		if (deleteUser.count === 0) {
+			throw new NotFoundException('Пользователь не найдет или уже удален');
+		}
+
+		return { message: 'Пользователь удален' };
 	}
 }

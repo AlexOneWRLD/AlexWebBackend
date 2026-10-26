@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@ne
 import {
 	ApiBadRequestResponse,
 	ApiConflictResponse,
+	ApiCreatedResponse,
 	ApiNotFoundResponse,
 	ApiOkResponse,
 	ApiOperation,
@@ -25,7 +26,7 @@ export class AuthController {
 		summary: 'Создание аккаунта',
 		description: 'Создает новый аккаунт пользователя'
 	})
-	@ApiOkResponse({ type: AuthDto })
+	@ApiCreatedResponse({ type: AuthDto })
 	@ApiBadRequestResponse({ description: 'Некорректные данные' })
 	@ApiConflictResponse({ description: 'Пользователь с тåакой почтой уже существует' })
 	@Post('register')

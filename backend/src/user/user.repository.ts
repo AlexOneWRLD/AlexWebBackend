@@ -2,6 +2,18 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 
+const publicUserSelect = {
+	id: true,
+	name: true,
+	email: true,
+	age: true,
+	description: true,
+	picture: true,
+	role: true,
+	createdAt: true,
+	updatedAt: true
+} satisfies Prisma.UserSelect;
+
 @Injectable()
 export class UserRepository {
 	constructor(private readonly prismaService: PrismaService) {}
@@ -21,7 +33,8 @@ export class UserRepository {
 				where,
 				skip: (page - 1) * limit,
 				take: limit,
-				orderBy: [{ createdAt: 'desc' }, { id: 'asc' }]
+				orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+				select: publicUserSelect
 			}),
 
 			this.prismaService.user.count({
@@ -45,6 +58,14 @@ export class UserRepository {
 			where: {
 				id,
 				deletedAt: null
+			}
+		});
+	}
+
+	public async findByLogin(login: string) {
+		return await this.prismaService.user.findUnique({
+			where: {
+				login
 			}
 		});
 	}
