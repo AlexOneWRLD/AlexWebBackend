@@ -43,15 +43,7 @@ export class AuthService {
 			);
 		}
 
-		const newUser = await this.userService.create(
-			dto.email,
-			dto.password,
-			dto.name,
-			dto.age,
-			dto.description,
-			'',
-			0
-		);
+		const newUser = await this.userService.createUser(dto);
 
 		req.session.userId = newUser.id;
 
@@ -63,17 +55,17 @@ export class AuthService {
 	public async login(req: Request, res: Response, dto: LoginDto) {
 		const user = await this.userService.findByEmail(dto.email);
 
-		if (!user || !user.password) {
-			throw new NotFoundException(
-				'Пользователь не найден. Пожалуйста, проверьте введенные данные'
-			);
+		if (!user || user.deletedAt !== null || !user.password) {
+			throw new UnauthorizedException('Неверный логин или пароль');
 		}
 
 		const isValidPassword = await verify(user.password, dto.password);
 
 		if (!isValidPassword) {
-			throw new UnauthorizedException('Неверный пароль. Пожалуйста, попробуйте еще раз.	');
+			throw new UnauthorizedException('Неверный пароль. Пожалуйста, попробуйте еще раз.');
 		}
+
+		await this.regenerateSession(req);
 
 		req.session.userId = user.id;
 
@@ -82,8 +74,19 @@ export class AuthService {
 		return this.auth(res, user.id);
 	}
 
-	public async logout(res: Response) {
-		this.setCookie(res, 'refreshToken', new Date(0));
+	public async logout(req: Request, res: Response) {
+		await new Promise<void>((resolve, reject) => {
+			req.session.destroy(err => (err ? reject(err) : resolve()));
+		});
+
+		this.setCookie(res, '', new Date(0));
+
+		res.clearCookie('session', {
+			domain: this.configService.get<string>('SESSION_DOMAIN'),
+			path: '/'
+		});
+
+		return { message: 'Выход выполнен' };
 	}
 
 	public async validate(id: string) {
@@ -105,25 +108,29 @@ export class AuthService {
 
 		const refreshToken: unknown = req.cookies['refreshToken'];
 
-		if (typeof refreshToken !== 'string') {
+		if (typeof refreshToken !== 'string' || !refreshToken) {
 			throw new UnauthorizedException('Недействительный refresh-token');
 		}
 
-		if (!refreshToken) {
-			throw new UnauthorizedException('Недействительный refresh-token');
+		let payload: JwtPayload;
+
+		try {
+			payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken);
+		} catch {
+			throw new UnauthorizedException('Refresh-токен повреждён или просрочен');
 		}
 
-		const payload: JwtPayload = await this.jwtService.verifyAsync(refreshToken);
-
-		if (payload) {
-			const user = await this.userService.findById(payload.id);
-
-			if (!user) {
-				throw new NotFoundException('Пользователь не найден');
-			}
-
-			return this.auth(res, user.id);
+		if (payload.type !== 'refresh_token') {
+			throw new UnauthorizedException('Неверный тип токена');
 		}
+
+		if (payload.id !== sessionUserId) {
+			throw new UnauthorizedException('Сессия не соответствует токену');
+		}
+
+		const user = await this.userService.findById(payload.id);
+
+		return this.auth(res, user.id);
 	}
 
 	private auth(res: Response, id: string) {
@@ -135,14 +142,22 @@ export class AuthService {
 	}
 
 	private generateToken(id: string) {
-		const payload: JwtPayload = { id };
+		const accessPayload: JwtPayload = {
+			id,
+			type: 'access_token'
+		};
 
-		const accessToken = this.jwtService.sign(payload, {
-			expiresIn: ms(this.JWT_ACCESS_TOKEN_TTL)
+		const refreshPayload: JwtPayload = {
+			id,
+			type: 'refresh_token'
+		};
+
+		const accessToken = this.jwtService.sign(accessPayload, {
+			expiresIn: ms(this.JWT_ACCESS_TOKEN_TTL) / 1000
 		});
 
-		const refreshToken = this.jwtService.sign(payload, {
-			expiresIn: ms(this.JWT_REFRESH_TOKEN_TTL)
+		const refreshToken = this.jwtService.sign(refreshPayload, {
+			expiresIn: ms(this.JWT_REFRESH_TOKEN_TTL) / 1000
 		});
 
 		return {
@@ -167,6 +182,18 @@ export class AuthService {
 				if (error) {
 					reject(error);
 					return;
+				}
+
+				resolve();
+			});
+		});
+	}
+
+	private regenerateSession(req: Request): Promise<void> {
+		return new Promise((resolve, reject) => {
+			req.session.regenerate(err => {
+				if (err) {
+					return reject(err);
 				}
 
 				resolve();

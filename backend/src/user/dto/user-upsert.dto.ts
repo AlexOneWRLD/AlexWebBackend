@@ -1,6 +1,6 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsInt, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
-export class UserCreateDto {
+export class UserUpsertDto {
 	@IsString({ message: 'Имя должно быть строкой' })
 	@IsNotEmpty({ message: 'Имя обязательно для заполнения' })
 	name: string;
@@ -21,4 +21,15 @@ export class UserCreateDto {
 		message: 'Пароль подтверждения должен содержать минимум 6 символов'
 	})
 	passwordRepeat: string;
+
+	@IsInt({ message: 'Возраст должен быть числом' })
+	@IsNotEmpty({ message: 'Возраст обязателен для заполнения' })
+	age: number;
+
+	@IsString({ message: 'Описание должно быть строкой' })
+	@IsNotEmpty({ message: 'Описание подтверждения обязателен для заполнения' })
+	@MinLength(2, {
+		message: 'Описание должено содержать минимум 2 символа'
+	})
+	description: string;
 }

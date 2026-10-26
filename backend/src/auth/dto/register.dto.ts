@@ -2,21 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsInt, IsNotEmpty, IsString, MinLength, Validate } from 'class-validator';
 import { IsPasswordMatchingConstraint } from '../../../libs/common/decorators/is-password-matching-constrain.decorator';
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 export class RegisterDto {
 	@ApiProperty({
 		description: 'Отображаемое имя',

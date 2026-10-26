@@ -1,95 +1,68 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { User } from '@prisma/client';
 import { hash } from 'argon2';
-import { PrismaService } from '@/prisma/prisma.service';
-
-
-
-
-
-
+import { RegisterDto } from '@/auth/dto/register.dto';
+import { UsersQueryDto } from '@/user/dto/users-query.dto';
+import { UserRepository } from '@/user/user.repository';
 
 @Injectable()
 export class UserService {
-	public constructor(private readonly prismaService: PrismaService) {}
+	public constructor(private readonly userRepository: UserRepository) {}
 
-	//тут добить пагинацию + фильтр
-	public  async getUsers(): Promise<User[]> {
-		return await this.prismaService.user.findMany({
-			take: 12,
-			skip: 12
-		});
+	public async getUsers(query: UsersQueryDto) {
+		const { page = 1, limit = 12, search = '' } = query;
 
+		const { users, total } = await this.userRepository.findAll(page, limit, search);
+
+		return {
+			users,
+			total,
+			page,
+			limit,
+			totalPages: Math.ceil(total / limit)
+		};
 	}
 
 	public async findById(id: string) {
-		const user = await this.prismaService.user.findUnique({
-			where: {
-				id
-			}
-		});
+		const user = await this.userRepository.findById(id);
 
 		if (!user) {
-			throw new NotFoundException(
-				'Прользователь не найден, проверьте введенные данные'
-			);
+			throw new NotFoundException('Прользователь не найден, проверьте введенные данные');
 		}
 
 		return user;
 	}
 
 	public async findByEmail(email: string) {
-		return await this.prismaService.user.findUnique({
-			where: {
-				email
-			},
+		return await this.userRepository.findByEmail(email);
+	}
+
+	//Баланс и картинку доработать
+	public async createUser(dto: RegisterDto) {
+		return await this.userRepository.create({
+			name: dto.name,
+			email: dto.email,
+			password: dto.password ? await hash(dto.password) : '',
+			age: dto.age,
+			description: dto.description,
+			picture: '',
+			balance: 0
 		});
 	}
 
-	public async create(
-		email: string,
-		password: string,
-		name: string,
-		age: number,
-		description: string,
-		picture: string,
-		balance: number
-	) {
-		return await this.prismaService.user.create({
-			data: {
-				email,
-				password: password ? await hash(password) : '',
-				name,
-				age,
-				description,
-				picture,
-				balance
-			},
+	//Баланс и картинку доработать
+	public async updateUser(id: string, dto: RegisterDto) {
+		return await this.userRepository.update(id, {
+			name: dto.name,
+			email: dto.email,
+			password: dto.password ? await hash(dto.password) : dto.password,
+			age: dto.age,
+			description: dto.description,
+			picture: '',
+			balance: 0
 		});
 	}
 
-	//тут доработать момент с обновлением записи
-	public async update(
-		id: string,
-		email: string,
-		password: string,
-		name: string,
-		age: number,
-		description: string,
-		picture: string,
-		balance: number
-	) {
-		return await this.prismaService.user.update({
-			where: {id},
-			data: {
-				email,
-				password: password ? await hash(password) : '',
-				name,
-				age,
-				description,
-				picture,
-				balance
-			}
-		});
+	public async deleteUser(id: string) {
+		return await this.userRepository.softDelete(id);
 	}
 }

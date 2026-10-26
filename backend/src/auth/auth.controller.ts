@@ -27,7 +27,7 @@ export class AuthController {
 	})
 	@ApiOkResponse({ type: AuthDto })
 	@ApiBadRequestResponse({ description: 'Некорректные данные' })
-	@ApiConflictResponse({ description: 'Пользователь с такой почтой уже существует' })
+	@ApiConflictResponse({ description: 'Пользователь с тåакой почтой уже существует' })
 	@Post('register')
 	@HttpCode(HttpStatus.CREATED)
 	public async register(
@@ -73,8 +73,8 @@ export class AuthController {
 	})
 	@Post('logout')
 	@HttpCode(HttpStatus.OK)
-	public logout(@Res({ passthrough: true }) res: Response) {
-		return this.authService.logout(res);
+	public logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+		return this.authService.logout(req, res);
 	}
 
 	@Authorizantion()
