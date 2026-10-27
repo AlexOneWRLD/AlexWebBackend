@@ -2,8 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 
+// Поля, доступные в списке пользователей
 const publicUserSelect = {
 	id: true,
+	login: true,
 	name: true,
 	email: true,
 	age: true,
@@ -14,6 +16,13 @@ const publicUserSelect = {
 	updatedAt: true
 } satisfies Prisma.UserSelect;
 
+// Дополнительные поля собственного профиля
+const profileUserSelect = {
+	...publicUserSelect,
+	balance: true,
+	deletedAt: true
+} satisfies Prisma.UserSelect;
+
 @Injectable()
 export class UserRepository {
 	constructor(private readonly prismaService: PrismaService) {}
@@ -22,8 +31,9 @@ export class UserRepository {
 		const where: Prisma.UserWhereInput = {
 			deletedAt: null,
 			...(search.trim() && {
-				name: {
-					contains: search.trim()
+				login: {
+					contains: search.trim(),
+					mode: 'insensitive'
 				}
 			})
 		};
@@ -33,7 +43,7 @@ export class UserRepository {
 				where,
 				skip: (page - 1) * limit,
 				take: limit,
-				orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+				orderBy: [{ createdAt: 'desc' }],
 				select: publicUserSelect
 			}),
 
@@ -58,7 +68,8 @@ export class UserRepository {
 			where: {
 				id,
 				deletedAt: null
-			}
+			},
+			select: profileUserSelect
 		});
 	}
 
@@ -72,14 +83,19 @@ export class UserRepository {
 
 	public create(data: Prisma.UserCreateInput) {
 		return this.prismaService.user.create({
-			data
+			data,
+			select: { id: true }
 		});
 	}
 
 	public update(id: string, data: Prisma.UserUpdateInput) {
 		return this.prismaService.user.update({
-			where: { id },
-			data
+			where: {
+				id,
+				deletedAt: null
+			},
+			data,
+			select: profileUserSelect
 		});
 	}
 

@@ -2,8 +2,14 @@ import { IsEmail, IsInt, IsNotEmpty, IsString, MinLength } from 'class-validator
 
 export class UserUpdateDto {
 	@IsString({ message: 'Имя должно быть строкой' })
+	@MinLength(2, { message: 'Имя должно содержать минимум 2 символа' })
 	@IsNotEmpty({ message: 'Имя обязательно для заполнения' })
 	name: string;
+
+	@IsString({ message: 'Логин должно быть строкой' })
+	@MinLength(2, { message: 'Логин должен содержать минимум 2 символа' })
+	@IsNotEmpty({ message: 'Логин обязателен для заполнения' })
+	login: string;
 
 	@IsString({ message: 'Email должно быть строкой' })
 	@IsEmail({}, { message: 'Некорректный формат email' })
@@ -11,23 +17,13 @@ export class UserUpdateDto {
 	email: string;
 
 	@IsString({ message: 'Пароль должно быть строкой' })
-	@IsNotEmpty({ message: 'Пароль обязателен для заполнения' })
 	@MinLength(6, { message: 'Пароль должен содержать минимум 6 символов' })
 	password: string;
 
-	@IsString({ message: 'Пароль подтверждения должно быть строкой' })
-	@IsNotEmpty({ message: 'Пароль подтверждения обязателен для заполнения' })
-	@MinLength(6, {
-		message: 'Пароль подтверждения должен содержать минимум 6 символов'
-	})
-	passwordRepeat: string;
-
 	@IsInt({ message: 'Возраст должен быть числом' })
-	@IsNotEmpty({ message: 'Возраст обязателен для заполнения' })
 	age: number;
 
 	@IsString({ message: 'Описание должно быть строкой' })
-	@IsNotEmpty({ message: 'Описание подтверждения обязателен для заполнения' })
 	@MinLength(2, {
 		message: 'Описание должено содержать минимум 2 символа'
 	})

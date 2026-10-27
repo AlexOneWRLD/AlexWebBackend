@@ -100,17 +100,15 @@ export class AuthService {
 	}
 
 	public async validate(id: string) {
-		const user = await this.userService.findById(id);
+		try {
+			return await this.userService.findById(id);
+		} catch (error) {
+			if (error instanceof NotFoundException) {
+				throw new UnauthorizedException('Пользователь не найден или удалён');
+			}
 
-		if (!user) {
-			throw new NotFoundException('Пользователь не найден');
+			throw error;
 		}
-
-		if (user.deletedAt !== null) {
-			throw new NotFoundException('Пользователь удален');
-		}
-
-		return user;
 	}
 
 	public async refresh(req: Request, res: Response) {

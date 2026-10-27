@@ -2,8 +2,9 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma } from '@prisma/client';
 import { hash } from 'argon2';
 import { RegisterDto } from '@/auth/dto/register.dto';
+import { UserUpdateDto } from '@/user/dto/user-update.dto';
 import { UsersQueryDto } from '@/user/dto/users-query.dto';
-import { UserRepository } from '@/user/user.repository';
+import { UserRepository } from '@/user/repository/user.repository';
 
 @Injectable()
 export class UserService {
@@ -33,24 +34,12 @@ export class UserService {
 		return user;
 	}
 
-	public async findByEmail(email: string) {
-		const userByEmail = await this.userRepository.findByEmail(email);
-
-		if (!userByEmail) {
-			throw new NotFoundException('Прользователь не найден, проверьте введенные данные');
-		}
-
-		return userByEmail;
+	public findByEmail(email: string) {
+		return this.userRepository.findByEmail(email);
 	}
 
-	public async findByLogin(login: string) {
-		const userByLogin = await this.userRepository.findByLogin(login);
-
-		if (!userByLogin) {
-			throw new NotFoundException('Прользователь не найден, проверьте введенные данные');
-		}
-
-		return userByLogin;
+	public findByLogin(login: string) {
+		return this.userRepository.findByLogin(login);
 	}
 
 	//Баланс и картинку доработать
@@ -77,12 +66,12 @@ export class UserService {
 				throw new ConflictException('Пользователь с таким email уже существует');
 			}
 
-			return error;
+			throw error;
 		}
 	}
 
 	//Баланс и картинку доработать
-	public async updateUser(id: string, dto: RegisterDto) {
+	public async updateUser(id: string, dto: UserUpdateDto) {
 		return await this.userRepository.update(id, {
 			name: dto.name,
 			email: dto.email,
