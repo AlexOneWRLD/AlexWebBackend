@@ -10,8 +10,7 @@ describe('AuthController', () => {
 		register: jest.fn(),
 		login: jest.fn(),
 		refresh: jest.fn(),
-		logout: jest.fn(),
-		me: jest.fn()
+		logout: jest.fn()
 	};
 
 	beforeEach(async () => {
@@ -60,7 +59,7 @@ describe('AuthController', () => {
 	});
 
 	describe('POST /auth/login', () => {
-		it('Должен вернуть все профили пользователей', async () => {
+		it('Должен передать данные входа в AuthService', async () => {
 			const dto = {
 				login: 'alex',
 				password: 'Password123'
@@ -108,7 +107,7 @@ describe('AuthController', () => {
 			const res = {} as Response;
 
 			const response = {
-				accessToken: 'Выход выполнен'
+				message: 'Выход выполнен'
 			};
 
 			authServiceMock.logout.mockResolvedValueOnce(response);
@@ -118,6 +117,8 @@ describe('AuthController', () => {
 			expect(result).toEqual(response);
 
 			expect(authServiceMock.logout).toHaveBeenCalledWith(req, res);
+
+			expect(authServiceMock.logout).toHaveBeenCalledTimes(1);
 		});
 	});
 

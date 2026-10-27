@@ -10,7 +10,7 @@ import {
 	ApiTags,
 	ApiUnauthorizedResponse
 } from '@nestjs/swagger';
-import { Authorizantion } from '@/auth/decorators/authorization.decorator';
+import { Authorization } from '@/auth/decorators/authorization.decorator';
 import { Authorized } from '@/auth/decorators/authorized.decorator';
 import { ApiErrorBadRequestDto } from '@/common/dto/api-error-bad-request.dto';
 import { ApiErrorConflictDto } from '@/common/dto/api-error-conflict.dto';
@@ -25,7 +25,7 @@ import { UserService } from './user.service';
 
 @ApiTags('Users')
 @ApiBearerAuth()
-@Authorizantion()
+@Authorization()
 @Controller('users')
 export class UserController {
 	constructor(private readonly userService: UserService) {}

@@ -4,9 +4,9 @@ import { NestFactory } from '@nestjs/core';
 import { RedisStore } from 'connect-redis';
 import * as cookieParser from 'cookie-parser';
 import Redis from 'ioredis';
-import { ms } from '../libs/common/utils/ms.util';
-import { parseBoolean } from '../libs/common/utils/parse-boolean.util';
-import { setupSwagger } from '../libs/common/utils/swagger.dto';
+import { ms } from '@/common/utils/ms.util';
+import { parseBoolean } from '@/common/utils/parse-boolean.util';
+import { setupSwagger } from '@/common/utils/swagger.util';
 import { AppModule } from './app.module';
 
 import session = require('express-session');
@@ -57,4 +57,5 @@ async function bootstrap() {
 
 	await app.listen(config.getOrThrow<number>('APPLICATION_PORT'));
 }
+
 bootstrap();

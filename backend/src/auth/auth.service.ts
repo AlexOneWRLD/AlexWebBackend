@@ -12,9 +12,9 @@ import type { Response } from 'express';
 import { LoginDto } from '@/auth/dto/login.dto';
 import { RegisterDto } from '@/auth/dto/register.dto';
 import type { JwtPayload } from '@/auth/interfaces/jwt.interface';
+import { isDev } from '@/common/utils/is-dev.util';
+import { ms } from '@/common/utils/ms.util';
 import { UserService } from '@/user/user.service';
-import { isDev } from '../../libs/common/utils/is-dev.util';
-import { ms } from '../../libs/common/utils/ms.util';
 
 @Injectable()
 export class AuthService {
@@ -72,7 +72,7 @@ export class AuthService {
 		const isValidPassword = await verify(user.password, dto.password);
 
 		if (!isValidPassword) {
-			throw new UnauthorizedException('Неверный пароль. Пожалуйста, попробуйте еще раз.');
+			throw new UnauthorizedException('Неверный логин или пароль');
 		}
 
 		await this.regenerateSession(req);
@@ -115,7 +115,7 @@ export class AuthService {
 		const sessionUserId = req.session?.userId;
 
 		if (!sessionUserId) {
-			throw new UnauthorizedException('Пользователь не вошел в систему');
+			throw new UnauthorizedException('Пользователь не вошёл в систему');
 		}
 
 		const refreshToken: unknown = req.cookies['refreshToken'];

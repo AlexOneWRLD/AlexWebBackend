@@ -12,7 +12,7 @@ import {
 	ApiUnauthorizedResponse
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
-import { Authorizantion } from '@/auth/decorators/authorization.decorator';
+import { Authorization } from '@/auth/decorators/authorization.decorator';
 import { Authorized } from '@/auth/decorators/authorized.decorator';
 import { ApiErrorBadRequestDto } from '@/common/dto/api-error-bad-request.dto';
 import { ApiErrorConflictDto } from '@/common/dto/api-error-conflict.dto';
@@ -160,7 +160,7 @@ export class AuthController {
 	// GET /auth/@me
 
 	@Get('@me')
-	@Authorizantion()
+	@Authorization()
 	@ApiBearerAuth()
 	@ApiOperation({
 		summary: 'Получение текущего пользователя',

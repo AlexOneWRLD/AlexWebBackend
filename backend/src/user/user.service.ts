@@ -28,7 +28,7 @@ export class UserService {
 		const user = await this.userRepository.findById(id);
 
 		if (!user) {
-			throw new NotFoundException('Прользователь не найден, проверьте введенные данные');
+			throw new NotFoundException('Пользователь не найден, проверьте введенные данные');
 		}
 
 		return user;
@@ -44,12 +44,6 @@ export class UserService {
 
 	//Баланс и картинку доработать
 	public async createUser(dto: RegisterDto) {
-		const isExistEmail = await this.userRepository.findByEmail(dto.email);
-
-		if (isExistEmail) {
-			throw new ConflictException('Пользователь с таким email уже существует');
-		}
-
 		try {
 			return await this.userRepository.create({
 				name: dto.name,
@@ -90,7 +84,7 @@ export class UserService {
 		const deleteUser = await this.userRepository.softDelete(id);
 
 		if (deleteUser.count === 0) {
-			throw new NotFoundException('Пользователь не найдет или уже удален');
+			throw new NotFoundException('Пользователь не найден или уже удалён');
 		}
 
 		return { message: 'Пользователь удален' };

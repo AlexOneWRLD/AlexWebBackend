@@ -8,7 +8,7 @@ import {
 	MinLength,
 	Validate
 } from 'class-validator';
-import { IsPasswordMatchingConstraint } from '../../../libs/common/decorators/is-password-matching-constrain.decorator';
+import { IsPasswordMatchingConstraint } from '@/common/decorators/is-password-matching-constraint.decorator';
 
 export class RegisterDto {
 	@ApiProperty({
@@ -38,7 +38,7 @@ export class RegisterDto {
 
 	@ApiProperty({
 		description: 'Возраст',
-		example: '28'
+		example: 28
 	})
 	@IsInt({ message: 'Возраст должен быть числом' })
 	@IsNotEmpty({ message: 'Возраст обязателен для заполнения' })
@@ -59,22 +59,23 @@ export class RegisterDto {
 		minLength: 6,
 		maxLength: 128
 	})
-	@IsString({ message: 'Пароль должно быть строкой' })
+	@IsString({ message: 'Пароль должен быть строкой' })
 	@IsNotEmpty({ message: 'Пароль обязателен для заполнения' })
 	@MinLength(6, { message: 'Пароль должен содержать минимум 6 символов' })
 	password: string;
 
 	@ApiProperty({
 		description: 'Повторение пароля от аккаунта',
-		example: '12345',
+		example: '12345645',
 		minLength: 6,
 		maxLength: 128
 	})
-	@IsString({ message: 'Пароль подтверждения должно быть строкой' })
+	@IsString({ message: 'Подтверждение пароля должно быть строкой' })
 	@IsNotEmpty({ message: 'Пароль подтверждения обязателен для заполнения' })
 	@MinLength(6, {
 		message: 'Пароль подтверждения должен содержать минимум 6 символов'
 	})
+	@MaxLength(128)
 	@Validate(IsPasswordMatchingConstraint, {
 		message: 'Пароли не совпадают'
 	})

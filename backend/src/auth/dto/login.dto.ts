@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {
 	@ApiProperty({
@@ -12,12 +12,13 @@ export class LoginDto {
 
 	@ApiProperty({
 		description: 'Пароль от аккаунта',
-		example: '12345',
+		example: '12345231',
 		minLength: 6,
 		maxLength: 128
 	})
 	@IsString({ message: 'Пароль должно быть строкой' })
 	@IsNotEmpty({ message: 'Пароль обязателен для заполнения' })
 	@MinLength(6, { message: 'Пароль должен содержать минимум 6 символов' })
+	@MaxLength(128)
 	password: string;
 }

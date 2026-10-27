@@ -29,7 +29,7 @@ describe('UserController', () => {
 	});
 
 	describe('GET /users/me', () => {
-		it('должен вернуть профиль пользователя', async () => {
+		it('Должен вернуть профиль пользователя', async () => {
 			const userId = '123-dasd';
 
 			const mockUser = {
@@ -51,7 +51,7 @@ describe('UserController', () => {
 	});
 
 	describe('GET /users', () => {
-		it('должен вернуть все профили пользователей', async () => {
+		it('Должен передать параметры пагинации в UserService', async () => {
 			const query = {
 				page: 2,
 				limit: 5,
