@@ -43,7 +43,7 @@ export class UserRepository {
 				where,
 				skip: (page - 1) * limit,
 				take: limit,
-				orderBy: [{ createdAt: 'desc' }],
+				orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
 				select: publicUserSelect
 			}),
 

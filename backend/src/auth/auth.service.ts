@@ -140,7 +140,7 @@ export class AuthService {
 			throw new UnauthorizedException('Сессия не соответствует токену');
 		}
 
-		const user = await this.userService.findById(payload.id);
+		const user = await this.validate(payload.id);
 
 		return this.auth(res, user.id);
 	}

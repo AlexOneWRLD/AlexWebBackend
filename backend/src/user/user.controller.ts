@@ -1,10 +1,27 @@
-import { Body, Controller, Delete, Get, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, Query } from '@nestjs/common';
+import {
+	ApiBadRequestResponse,
+	ApiBearerAuth,
+	ApiBody,
+	ApiConflictResponse,
+	ApiNotFoundResponse,
+	ApiOkResponse,
+	ApiOperation,
+	ApiTags,
+	ApiUnauthorizedResponse
+} from '@nestjs/swagger';
 import { Authorizantion } from '@/auth/decorators/authorization.decorator';
 import { Authorized } from '@/auth/decorators/authorized.decorator';
-import { RegisterDto } from '@/auth/dto/register.dto';
-import { UsersQueryDto } from '@/user/dto/users-query.dto';
-import { UserService } from '@/user/user.service';
+import { ApiErrorBadRequestDto } from '@/common/dto/api-error-bad-request.dto';
+import { ApiErrorConflictDto } from '@/common/dto/api-error-conflict.dto';
+import { ApiErrorNotFoundDto } from '@/common/dto/api-error-not-found.dto';
+import { ApiErrorUnauthorizedResponseDto } from '@/common/dto/api-error-unauthorized.dto';
+import { DeleteUserResponseDto } from './dto/delete-user-response.dto';
+import { PaginatedUsersResponseDto } from './dto/paginated-users-response.dto';
+import { ProfileResponseDto } from './dto/user-response.dto';
+import { UserUpdateDto } from './dto/user-update.dto';
+import { UsersQueryDto } from './dto/users-query.dto';
+import { UserService } from './user.service';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -13,38 +30,125 @@ import { UserService } from '@/user/user.service';
 export class UserController {
 	constructor(private readonly userService: UserService) {}
 
-	@ApiOperation({
-		summary: 'Получение пользователя по id',
-		description: 'Поиск среди всех юзеров по уникальному id'
-	})
+	// GET /users/me
+
 	@Get('me')
-	getMe(@Authorized('id') id: string) {
+	@ApiOperation({
+		summary: 'Получение собственного профиля',
+		description:
+			'Возвращает информацию об авторизованном ' +
+			'пользователе. ID берётся из access JWT, ' +
+			'поэтому передавать ID в URL не нужно. ' +
+			'Хэш пароля не включается в ответ.'
+	})
+	@ApiOkResponse({
+		description: 'Профиль успешно получен.',
+		type: ProfileResponseDto
+	})
+	@ApiUnauthorizedResponse({
+		description: 'Токен отсутствует, недействителен, ' + 'просрочен или аккаунт удалён.',
+		type: ApiErrorUnauthorizedResponseDto
+	})
+	public getMe(@Authorized('id') id: string) {
 		return this.userService.findById(id);
 	}
 
-	@ApiOperation({
-		summary: 'Получение всех пользователей'
-	})
+	// GET /users
+
 	@Get()
-	getUsers(@Query() query: UsersQueryDto) {
+	@ApiOperation({
+		summary: 'Получение списка пользователей',
+		description:
+			'Возвращает активных пользователей с пагинацией. ' +
+			'Поддерживает фильтрацию по логину без учёта регистра. ' +
+			'Не возвращает пароль и мягко удалённые записи. ' +
+			'Значения по умолчанию: page=1, limit=12.'
+	})
+	@ApiOkResponse({
+		description: 'Список пользователей и метаданные пагинации.',
+		type: PaginatedUsersResponseDto
+	})
+	@ApiBadRequestResponse({
+		description:
+			'Некорректные параметры пагинации: page меньше 1, ' +
+			'limit вне диапазона 1–150 или неверные типы.',
+		type: ApiErrorBadRequestDto
+	})
+	@ApiUnauthorizedResponse({
+		description: 'Необходим действительный access JWT.',
+		type: ApiErrorUnauthorizedResponseDto
+	})
+	public getUsers(@Query() query: UsersQueryDto) {
 		return this.userService.getUsers(query);
 	}
 
-	@ApiOperation({
-		summary: 'Изменение данных у пользователя',
-		description: 'Позволяет полностью или частично поменять данные у одного пользователя'
-	})
+	// PATCH /users/me
+
 	@Patch('me')
-	updateUser(@Authorized('id') id: string, @Body() dto: RegisterDto) {
+	@ApiOperation({
+		summary: 'Частичное обновление профиля',
+		description:
+			'Позволяет изменить имя, логин, email, возраст ' +
+			'или описание текущего пользователя. ' +
+			'Можно передавать только изменяемые поля. ' +
+			'Пароль, баланс и роль нельзя менять этим методом.'
+	})
+	@ApiBody({
+		type: UserUpdateDto,
+		description: 'Поля профиля, которые необходимо обновить.'
+	})
+	@ApiOkResponse({
+		description: 'Данные успешно обновлены. ' + 'Возвращается актуальный профиль без пароля.',
+		type: ProfileResponseDto
+	})
+	@ApiBadRequestResponse({
+		description:
+			'Передан пустой объект, неверные данные ' + 'или поля, запрещённые к изменению.',
+		type: ApiErrorBadRequestDto
+	})
+	@ApiUnauthorizedResponse({
+		description: 'Необходим действительный access JWT.',
+		type: ApiErrorUnauthorizedResponseDto
+	})
+	@ApiNotFoundResponse({
+		description: 'Аккаунт не найден в момент выполнения обновления.',
+		type: ApiErrorNotFoundDto
+	})
+	@ApiConflictResponse({
+		description: 'Указанный логин или email уже используется.',
+		type: ApiErrorConflictDto
+	})
+	public updateMe(@Authorized('id') id: string, @Body() dto: UserUpdateDto) {
 		return this.userService.updateUser(id, dto);
 	}
 
-	@ApiOperation({
-		summary: 'Мягкое удаление пользователя',
-		description: 'Позволяет удалить пользователя, но оставляет его в базе данных'
-	})
+	// DELETE /users/me
+
 	@Delete('me')
-	deleteUser(@Authorized('id') id: string) {
+	@HttpCode(HttpStatus.OK)
+	@ApiOperation({
+		summary: 'Мягкое удаление собственного аккаунта',
+		description:
+			'Выполняет soft delete: заполняет поле deletedAt, ' +
+			'но физически не удаляет запись из PostgreSQL. ' +
+			'После этого аккаунт исключается из списка, ' +
+			'а его access JWT перестаёт проходить проверку.'
+	})
+	@ApiOkResponse({
+		description: 'Аккаунт успешно помечен удалённым.',
+		type: DeleteUserResponseDto
+	})
+	@ApiUnauthorizedResponse({
+		description: 'Access JWT отсутствует, недействителен ' + 'или аккаунт уже удалён.',
+		type: ApiErrorUnauthorizedResponseDto
+	})
+	@ApiNotFoundResponse({
+		description:
+			'При удалении не найден активный пользователь. ' +
+			'Например, запись была удалена параллельным запросом.',
+		type: ApiErrorNotFoundDto
+	})
+	public deleteMe(@Authorized('id') id: string) {
 		return this.userService.deleteUser(id);
 	}
 }

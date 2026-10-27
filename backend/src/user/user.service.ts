@@ -63,7 +63,9 @@ export class UserService {
 			});
 		} catch (error) {
 			if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-				throw new ConflictException('Пользователь с таким email уже существует');
+				throw new ConflictException(
+					'Пользователь с таким логином или email уже существует'
+				);
 			}
 
 			throw error;

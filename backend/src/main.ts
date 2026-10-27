@@ -8,6 +8,7 @@ import { ms } from '../libs/common/utils/ms.util';
 import { parseBoolean } from '../libs/common/utils/parse-boolean.util';
 import { setupSwagger } from '../libs/common/utils/swagger.dto';
 import { AppModule } from './app.module';
+
 import session = require('express-session');
 
 async function bootstrap() {
@@ -20,7 +21,9 @@ async function bootstrap() {
 
 	app.useGlobalPipes(
 		new ValidationPipe({
-			transform: true
+			transform: true,
+			whitelist: true,
+			forbidNonWhitelisted: true
 		})
 	);
 
