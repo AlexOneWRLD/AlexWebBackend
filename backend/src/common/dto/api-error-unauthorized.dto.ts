@@ -5,7 +5,7 @@ export class ApiErrorUnauthorizedResponseDto {
 		description: 'HTTP-код ошибки. Всегда 401.',
 		example: 401
 	})
-	statusCode: number;
+	statusCode!: number;
 
 	@ApiProperty({
 		description:
@@ -14,11 +14,11 @@ export class ApiErrorUnauthorizedResponseDto {
 			'или истечении срока действия учётных данных.',
 		example: 'Unauthorized'
 	})
-	message: string;
+	message!: string;
 
 	@ApiProperty({
 		description: 'Стандартное название HTTP-ошибки',
 		example: 'Unauthorized'
 	})
-	error: string;
+	error!: string;
 }

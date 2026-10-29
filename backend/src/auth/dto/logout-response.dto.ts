@@ -5,5 +5,5 @@ export class LogoutResponseDto {
 		description: 'Результат выхода из системы',
 		example: 'Выход выполнен'
 	})
-	message: string;
+	message!: string;
 }

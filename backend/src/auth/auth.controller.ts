@@ -1,7 +1,6 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
 import {
 	ApiBadRequestResponse,
-	ApiBearerAuth,
 	ApiBody,
 	ApiConflictResponse,
 	ApiCookieAuth,
@@ -12,12 +11,9 @@ import {
 	ApiUnauthorizedResponse
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
-import { Authorization } from '@/auth/decorators/authorization.decorator';
-import { Authorized } from '@/auth/decorators/authorized.decorator';
 import { ApiErrorBadRequestDto } from '@/common/dto/api-error-bad-request.dto';
 import { ApiErrorConflictDto } from '@/common/dto/api-error-conflict.dto';
 import { ApiErrorUnauthorizedResponseDto } from '@/common/dto/api-error-unauthorized.dto';
-import { ProfileResponseDto } from '@/user/dto/user-response.dto';
 import { AuthService } from './auth.service';
 import { AuthDto } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
@@ -28,8 +24,6 @@ import { RegisterDto } from './dto/register.dto';
 @Controller('auth')
 export class AuthController {
 	constructor(private readonly authService: AuthService) {}
-
-	// POST /auth/register
 
 	@Post('register')
 	@HttpCode(HttpStatus.CREATED)
@@ -71,8 +65,6 @@ export class AuthController {
 		return this.authService.register(req, res, dto);
 	}
 
-	// POST /auth/login
-
 	@Post('login')
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({
@@ -106,8 +98,6 @@ export class AuthController {
 		return this.authService.login(req, res, dto);
 	}
 
-	// POST /auth/refresh
-
 	@Post('refresh')
 	@HttpCode(HttpStatus.OK)
 	@ApiCookieAuth('refreshToken')
@@ -137,8 +127,6 @@ export class AuthController {
 		return this.authService.refresh(req, res);
 	}
 
-	// POST /auth/logout
-
 	@Post('logout')
 	@HttpCode(HttpStatus.OK)
 	@ApiOperation({
@@ -155,29 +143,5 @@ export class AuthController {
 	})
 	public logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
 		return this.authService.logout(req, res);
-	}
-
-	// GET /auth/@me
-
-	@Get('@me')
-	@Authorization()
-	@ApiBearerAuth()
-	@ApiOperation({
-		summary: 'Получение текущего пользователя',
-		description:
-			'Альтернативный маршрут собственного профиля. ' +
-			'Пользователь определяется по access JWT. ' +
-			'ID не передаётся в URL.'
-	})
-	@ApiOkResponse({
-		description: 'Профиль текущего пользователя без хэша пароля.',
-		type: ProfileResponseDto
-	})
-	@ApiUnauthorizedResponse({
-		description: 'Access JWT отсутствует, недействителен, ' + 'просрочен или аккаунт удалён.',
-		type: ApiErrorUnauthorizedResponseDto
-	})
-	public me(@Authorized() user: unknown) {
-		return user;
 	}
 }

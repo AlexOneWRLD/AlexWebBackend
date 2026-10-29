@@ -6,20 +6,20 @@ export class PaginatedUsersResponseDto {
 		description: 'Пользователи на текущей странице',
 		type: [UserResponseDto]
 	})
-	users: UserResponseDto[];
+	users!: UserResponseDto[];
 
 	@ApiProperty({
 		description: 'Общее количество пользователей, ' + 'соответствующих фильтру',
 		example: 47
 	})
-	total: number;
+	total!: number;
 
 	@ApiProperty({
 		description: 'Номер текущей страницы',
 		example: 2,
 		minimum: 1
 	})
-	page: number;
+	page!: number;
 
 	@ApiProperty({
 		description: 'Максимальное количество записей на странице',
@@ -27,12 +27,12 @@ export class PaginatedUsersResponseDto {
 		minimum: 1,
 		maximum: 150
 	})
-	limit: number;
+	limit!: number;
 
 	@ApiProperty({
 		description: 'Общее количество страниц',
 		example: 4,
 		minimum: 0
 	})
-	totalPages: number;
+	totalPages!: number;
 }

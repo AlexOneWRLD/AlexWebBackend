@@ -5,7 +5,7 @@ export class ApiErrorBadRequestDto {
 		description: 'HTTP-код ошибки. Всегда 400.',
 		example: 400
 	})
-	statusCode: number;
+	statusCode!: number;
 
 	@ApiProperty({
 		description:
@@ -24,11 +24,11 @@ export class ApiErrorBadRequestDto {
 			'Пароль должен содержать минимум 8 символов'
 		]
 	})
-	message: string | string[];
+	message!: string | string[];
 
 	@ApiProperty({
 		description: 'Стандартное название HTTP-ошибки',
 		example: 'Bad Request'
 	})
-	error: string;
+	error!: string;
 }

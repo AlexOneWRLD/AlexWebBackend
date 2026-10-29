@@ -7,26 +7,26 @@ export class UserResponseDto {
 		format: 'uuid',
 		example: 'b3bb9ad8-dfd0-4f9b-8ec3-e54457c624bd'
 	})
-	id: string;
+	id!: string;
 
 	@ApiProperty({
 		description: 'Уникальный логин пользователя',
 		example: 'AlexOneWRLD'
 	})
-	login: string;
+	login!: string;
 
 	@ApiProperty({
 		description: 'Отображаемое имя пользователя',
 		example: 'Alexander'
 	})
-	name: string;
+	name!: string;
 
 	@ApiProperty({
 		description: 'Электронная почта пользователя',
 		format: 'email',
 		example: 'alex@example.com'
 	})
-	email: string;
+	email!: string;
 
 	@ApiProperty({
 		description: 'Возраст пользователя',
@@ -34,7 +34,7 @@ export class UserResponseDto {
 		nullable: true,
 		example: 28
 	})
-	age: number | null;
+	age!: number;
 
 	@ApiProperty({
 		description: 'Описание профиля',
@@ -43,7 +43,7 @@ export class UserResponseDto {
 		maxLength: 1000,
 		example: 'Backend Developer'
 	})
-	description: string | null;
+	description!: string;
 
 	@ApiProperty({
 		description: 'Ссылка на изображение профиля',
@@ -51,7 +51,7 @@ export class UserResponseDto {
 		nullable: true,
 		example: ''
 	})
-	picture: string | null;
+	picture?: string | null;
 
 	@ApiProperty({
 		description: 'Роль пользователя',
@@ -59,21 +59,21 @@ export class UserResponseDto {
 		enumName: 'UserRole',
 		example: UserRole.REGULAR
 	})
-	role: UserRole;
+	role!: UserRole;
 
 	@ApiProperty({
 		description: 'Дата регистрации',
 		format: 'date-time',
 		example: '2026-10-27T08:00:00.000Z'
 	})
-	createdAt: string;
+	createdAt!: string;
 
 	@ApiProperty({
 		description: 'Дата последнего обновления',
 		format: 'date-time',
 		example: '2026-10-27T08:30:00.000Z'
 	})
-	updatedAt: string;
+	updatedAt!: string;
 }
 
 export class ProfileResponseDto extends UserResponseDto {
@@ -82,7 +82,7 @@ export class ProfileResponseDto extends UserResponseDto {
 		type: String,
 		example: '0.00'
 	})
-	balance: string;
+	balance!: string;
 
 	@ApiProperty({
 		description: 'Дата мягкого удаления аккаунта. ' + 'Для активного пользователя равна null.',
@@ -91,5 +91,5 @@ export class ProfileResponseDto extends UserResponseDto {
 		nullable: true,
 		example: null
 	})
-	deletedAt: string | null;
+	deletedAt?: string | null;
 }

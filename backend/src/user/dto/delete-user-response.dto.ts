@@ -5,5 +5,5 @@ export class DeleteUserResponseDto {
 		description: 'Результат мягкого удаления аккаунта',
 		example: 'Пользователь удален'
 	})
-	message: string;
+	message!: string;
 }

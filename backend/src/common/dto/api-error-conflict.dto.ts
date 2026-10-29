@@ -5,7 +5,7 @@ export class ApiErrorConflictDto {
 		description: 'HTTP-код ошибки. Всегда 409.',
 		example: 409
 	})
-	statusCode: number;
+	statusCode!: number;
 
 	@ApiProperty({
 		description:
@@ -15,11 +15,11 @@ export class ApiErrorConflictDto {
 			'или при нарушении ограничений бизнес-логики.',
 		example: 'Пользователь с таким email уже существует'
 	})
-	message: string;
+	message!: string;
 
 	@ApiProperty({
 		description: 'Стандартное название HTTP-ошибки',
 		example: 'Conflict'
 	})
-	error: string;
+	error!: string;
 }

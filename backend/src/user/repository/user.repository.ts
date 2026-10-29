@@ -7,7 +7,6 @@ const publicUserSelect = {
 	id: true,
 	login: true,
 	name: true,
-	email: true,
 	age: true,
 	description: true,
 	picture: true,
@@ -19,6 +18,7 @@ const publicUserSelect = {
 // Дополнительные поля собственного профиля
 const profileUserSelect = {
 	...publicUserSelect,
+	email: true,
 	balance: true,
 	deletedAt: true
 } satisfies Prisma.UserSelect;
@@ -56,9 +56,13 @@ export class UserRepository {
 	}
 
 	public async findByEmail(email: string) {
-		return await this.prismaService.user.findUnique({
+		return await this.prismaService.user.findFirst({
 			where: {
-				email
+				email: {
+					equals: email.trim(),
+					mode: 'insensitive'
+				},
+				deletedAt: null
 			}
 		});
 	}
@@ -74,9 +78,25 @@ export class UserRepository {
 	}
 
 	public async findByLogin(login: string) {
+		return this.prismaService.user.findFirst({
+			where: {
+				login: {
+					equals: login,
+					mode: 'insensitive'
+				},
+				deletedAt: null
+			}
+		});
+	}
+
+	public async findPasswordById(id: string) {
 		return await this.prismaService.user.findUnique({
 			where: {
-				login
+				id,
+				deletedAt: null
+			},
+			select: {
+				password: true
 			}
 		});
 	}
@@ -96,6 +116,19 @@ export class UserRepository {
 			},
 			data,
 			select: profileUserSelect
+		});
+	}
+
+	public updatePassword(id: string, currentPassword: string, newPassword: string) {
+		return this.prismaService.user.updateMany({
+			where: {
+				id,
+				deletedAt: null,
+				password: currentPassword
+			},
+			data: {
+				password: newPassword
+			}
 		});
 	}
 

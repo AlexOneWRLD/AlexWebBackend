@@ -1,102 +1,66 @@
-import {
-	ConflictException,
-	Injectable,
-	NotFoundException,
-	UnauthorizedException
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConfigType } from '@nestjs/config';
 import { verify } from 'argon2';
 import type { Request } from 'express';
 import type { Response } from 'express';
+import { AUTH_MESSAGES } from '@/auth/constants/auth.messages';
 import { LoginDto } from '@/auth/dto/login.dto';
 import { RegisterDto } from '@/auth/dto/register.dto';
-import type { JwtPayload } from '@/auth/interfaces/jwt.interface';
-import { isDev } from '@/common/utils/is-dev.util';
-import { ms } from '@/common/utils/ms.util';
+import { TokenService } from '@/auth/services/token.service';
+import { hashRefreshToken, matchesRefreshToken } from '@/common/utils/refresh-token.util';
+import { destroySession, regenerateSession, saveSession } from '@/common/utils/session.util';
+import { createCookieConfig, REFRESH_COOKIE } from '@/config/cookie.config';
+import { jwtConfig } from '@/config/jwt.config';
+import { sessionConfig } from '@/config/session.config';
 import { UserService } from '@/user/user.service';
 
 @Injectable()
 export class AuthService {
-	private readonly JWT_ACCESS_TOKEN_TTL: string;
-	private readonly JWT_REFRESH_TOKEN_TTL: string;
+	private readonly cookieConfig: ReturnType<typeof createCookieConfig>;
 
-	private readonly COOKIE_DOMAIN: string;
-
-	public constructor(
+	constructor(
 		private readonly userService: UserService,
-		private readonly configService: ConfigService,
-		private readonly jwtService: JwtService
-	) {
-		this.JWT_ACCESS_TOKEN_TTL = configService.getOrThrow<string>('JWT_ACCESS_TOKEN_TTL');
-		this.JWT_REFRESH_TOKEN_TTL = configService.getOrThrow<string>('JWT_REFRESH_TOKEN_TTL');
+		private readonly tokenService: TokenService,
 
-		this.COOKIE_DOMAIN = configService.getOrThrow<string>('COOKIE_DOMAIN');
+		@Inject(sessionConfig.KEY)
+		sessionSettings: ConfigType<typeof sessionConfig>,
+
+		@Inject(jwtConfig.KEY)
+		jwtSettings: ConfigType<typeof jwtConfig>
+	) {
+		this.cookieConfig = createCookieConfig(sessionSettings, jwtSettings);
 	}
 
 	public async register(req: Request, res: Response, dto: RegisterDto) {
-		const isExistLogin = await this.userService.findByLogin(dto.login);
-
-		if (isExistLogin) {
-			throw new ConflictException(
-				'Регистрация не удалась. Пользователь с таким логином уже существует. Пожалуйста, используйте другой логин или войдите в систему.'
-			);
-		}
-
-		const isExistEmail = await this.userService.findByEmail(dto.email);
-
-		if (isExistEmail) {
-			throw new ConflictException(
-				'Регистрация не удалась. Пользователь с таким email уже существует. Пожалуйста, используйте другой email или войдите в систему.'
-			);
-		}
-
 		const newUser = await this.userService.createUser(dto);
 
-		await this.regenerateSession(req);
-
-		req.session.userId = newUser.id;
-
-		await this.saveSession(req);
-
-		return this.auth(res, newUser.id);
+		return this.startSession(req, res, newUser.id);
 	}
 
 	public async login(req: Request, res: Response, dto: LoginDto) {
 		const user = await this.userService.findByLogin(dto.login);
 
-		if (!user || user.deletedAt !== null || !user.password) {
-			throw new UnauthorizedException('Неверный логин или пароль');
+		if (!user || user.deletedAt !== null) {
+			throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
 		}
 
 		const isValidPassword = await verify(user.password, dto.password);
 
 		if (!isValidPassword) {
-			throw new UnauthorizedException('Неверный логин или пароль');
+			throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
 		}
 
-		await this.regenerateSession(req);
-
-		req.session.userId = user.id;
-
-		await this.saveSession(req);
-
-		return this.auth(res, user.id);
+		return this.startSession(req, res, user.id);
 	}
 
 	public async logout(req: Request, res: Response) {
-		await new Promise<void>((resolve, reject) => {
-			req.session.destroy(err => (err ? reject(err) : resolve()));
-		});
+		await destroySession(req);
 
-		this.setCookie(res, '', new Date(0));
+		res.clearCookie(REFRESH_COOKIE, this.cookieConfig.cookieOptions);
 
-		res.clearCookie('session', {
-			domain: this.configService.get<string>('SESSION_DOMAIN'),
-			path: '/'
-		});
+		res.clearCookie(this.cookieConfig.sessionName, this.cookieConfig.cookieOptions);
 
-		return { message: 'Выход выполнен' };
+		return { message: AUTH_MESSAGES.LOGOUT_SUCCESS };
 	}
 
 	public async validate(id: string) {
@@ -104,7 +68,7 @@ export class AuthService {
 			return await this.userService.findById(id);
 		} catch (error) {
 			if (error instanceof NotFoundException) {
-				throw new UnauthorizedException('Пользователь не найден или удалён');
+				throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
 			}
 
 			throw error;
@@ -115,101 +79,57 @@ export class AuthService {
 		const sessionUserId = req.session?.userId;
 
 		if (!sessionUserId) {
-			throw new UnauthorizedException('Пользователь не вошёл в систему');
+			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
 		}
 
-		const refreshToken: unknown = req.cookies['refreshToken'];
+		const refreshToken: unknown = req.cookies?.[REFRESH_COOKIE];
 
-		if (typeof refreshToken !== 'string' || !refreshToken) {
-			throw new UnauthorizedException('Недействительный refresh-token');
+		if (typeof refreshToken !== 'string' || refreshToken.length === 0) {
+			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
 		}
 
-		let payload: JwtPayload;
+		const userId = await this.tokenService.verifyRefresh(refreshToken);
 
-		try {
-			payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken);
-		} catch {
-			throw new UnauthorizedException('Refresh-токен повреждён или просрочен');
+		if (userId !== sessionUserId) {
+			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
 		}
 
-		if (payload.type !== 'refresh_token') {
-			throw new UnauthorizedException('Неверный тип токена');
+		const storedHash = req.session.refreshTokenHash;
+
+		if (!storedHash || !matchesRefreshToken(refreshToken, storedHash)) {
+			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
 		}
 
-		if (payload.id !== sessionUserId) {
-			throw new UnauthorizedException('Сессия не соответствует токену');
-		}
+		const user = await this.validate(userId);
 
-		const user = await this.validate(payload.id);
-
-		return this.auth(res, user.id);
+		return this.issueAndSaveTokens(req, res, user.id);
 	}
 
-	private auth(res: Response, id: string) {
-		const { accessToken, refreshToken } = this.generateToken(id);
+	private async startSession(req: Request, res: Response, userId: string) {
+		await regenerateSession(req);
 
-		this.setCookie(res, refreshToken, new Date(Date.now() + ms(this.JWT_REFRESH_TOKEN_TTL)));
+		req.session.userId = userId;
 
-		return { accessToken };
+		await saveSession(req);
+
+		return this.issueAndSaveTokens(req, res, userId);
 	}
 
-	private generateToken(id: string) {
-		const accessPayload: JwtPayload = {
-			id,
-			type: 'access_token'
-		};
+	private async issueAndSaveTokens(
+		req: Request,
+		res: Response,
+		userId: string
+	): Promise<{ accessToken: string }> {
+		const { accessToken, refreshToken } = this.tokenService.issuePair(userId);
 
-		const refreshPayload: JwtPayload = {
-			id,
-			type: 'refresh_token'
-		};
+		req.session.refreshTokenHash = hashRefreshToken(refreshToken);
 
-		const accessToken = this.jwtService.sign(accessPayload, {
-			expiresIn: ms(this.JWT_ACCESS_TOKEN_TTL) / 1000
-		});
+		await saveSession(req);
 
-		const refreshToken = this.jwtService.sign(refreshPayload, {
-			expiresIn: ms(this.JWT_REFRESH_TOKEN_TTL) / 1000
-		});
+		res.cookie(REFRESH_COOKIE, refreshToken, this.cookieConfig.refreshCookieOptions);
 
 		return {
-			accessToken,
-			refreshToken
+			accessToken
 		};
-	}
-
-	private setCookie(res: Response, value: string, expires: Date) {
-		res.cookie('refreshToken', value, {
-			httpOnly: true,
-			domain: this.COOKIE_DOMAIN,
-			expires,
-			secure: !isDev(this.configService),
-			sameSite: isDev(this.configService) ? 'none' : 'lax'
-		});
-	}
-
-	private saveSession(req: Request): Promise<void> {
-		return new Promise((resolve, reject) => {
-			req.session.save(error => {
-				if (error) {
-					reject(error);
-					return;
-				}
-
-				resolve();
-			});
-		});
-	}
-
-	private regenerateSession(req: Request): Promise<void> {
-		return new Promise((resolve, reject) => {
-			req.session.regenerate(err => {
-				if (err) {
-					return reject(err);
-				}
-
-				resolve();
-			});
-		});
 	}
 }

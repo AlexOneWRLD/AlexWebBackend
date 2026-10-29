@@ -1,15 +1,13 @@
-import { ConfigService } from '@nestjs/config';
-import type { JwtModuleOptions } from '@nestjs/jwt';
+import { registerAs } from '@nestjs/config';
+import { envSchema } from './env.validation';
 
-export function getJwtConfig(configService: ConfigService): JwtModuleOptions {
+export const jwtConfig = registerAs('jwt', () => {
+	const env = envSchema.parse(process.env);
+
 	return {
-		secret: configService.getOrThrow<string>('JWT_SECRET'),
-		signOptions: {
-			algorithm: 'HS256'
-		},
-		verifyOptions: {
-			algorithms: ['HS256'],
-			ignoreExpiration: false
-		}
+		secret: env.JWT_SECRET,
+		accessTtl: env.JWT_ACCESS_TOKEN_TTL,
+		refreshTtl: env.JWT_REFRESH_TOKEN_TTL,
+		algorithm: 'HS256' as const
 	};
-}
+});

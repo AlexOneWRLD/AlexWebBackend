@@ -1,61 +1,65 @@
-import { ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { type ConfigType } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { RedisStore } from 'connect-redis';
 import * as cookieParser from 'cookie-parser';
+import * as session from 'express-session';
 import Redis from 'ioredis';
-import { ms } from '@/common/utils/ms.util';
-import { parseBoolean } from '@/common/utils/parse-boolean.util';
+import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
 import { setupSwagger } from '@/common/utils/swagger.util';
+import { appConfig } from '@/config/app.config';
+import { createCookieConfig } from '@/config/cookie.config';
+import { jwtConfig } from '@/config/jwt.config';
+import { redisConfig } from '@/config/redis.config';
+import { sessionConfig } from '@/config/session.config';
 import { AppModule } from './app.module';
-
-import session = require('express-session');
 
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
 
-	const config = app.get(ConfigService);
-	const redis = new Redis(config.getOrThrow<string>('REDIS_URL'));
+	const appSettings = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
 
-	app.use(cookieParser(config.getOrThrow<string>('COOKIES_SECRET')));
+	const jwtSettings = app.get<ConfigType<typeof jwtConfig>>(jwtConfig.KEY);
 
-	app.useGlobalPipes(
-		new ValidationPipe({
-			transform: true,
-			whitelist: true,
-			forbidNonWhitelisted: true
-		})
-	);
+	const sessionSettings = app.get<ConfigType<typeof sessionConfig>>(sessionConfig.KEY);
+
+	const redisSettings = app.get<ConfigType<typeof redisConfig>>(redisConfig.KEY);
+
+	const cookieConfig = createCookieConfig(sessionSettings, jwtSettings);
+
+	const redis = new Redis(redisSettings.url);
+
+	app.use(cookieParser(appSettings.cookiesSecret));
+
+	app.useGlobalFilters(new AllExceptionsFilter());
 
 	app.use(
 		session({
-			secret: config.getOrThrow<string>('SESSION_SECRET'),
-			name: config.getOrThrow<string>('SESSION_NAME'),
+			secret: sessionSettings.secret,
+			name: sessionSettings.name,
+
 			resave: false,
 			saveUninitialized: false,
-			cookie: {
-				domain: config.getOrThrow<string>('SESSION_DOMAIN'),
-				maxAge: ms(config.getOrThrow<string>('SESSION_MAX_AGE')),
-				httpOnly: parseBoolean(config.getOrThrow<string>('SESSION_HTTP_ONLY')),
-				secure: parseBoolean(config.getOrThrow<string>('SESSION_SECURE')),
-				sameSite: 'lax'
-			},
+
+			cookie: cookieConfig.sessionCookieOptions,
+
 			store: new RedisStore({
 				client: redis,
-				prefix: config.getOrThrow<string>('SESSION_FOLDER')
+				prefix: sessionSettings.folder
 			})
 		})
 	);
 
 	app.enableCors({
-		origin: config.getOrThrow<string>('ALLOWED_ORIGIN'),
-		credentials: true,
-		exposedHeaders: true
+		origin: appSettings.allowedOrigin,
+		credentials: true
 	});
 
 	setupSwagger(app);
 
-	await app.listen(config.getOrThrow<number>('APPLICATION_PORT'));
+	await app.listen(appSettings.port);
 }
 
-bootstrap();
+bootstrap().catch((error: unknown) => {
+	console.error('Ошибка запуска приложения:', error);
+	process.exitCode = 1;
+});

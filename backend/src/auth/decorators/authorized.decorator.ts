@@ -1,10 +1,24 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { User } from '@prisma/client';
+import { createParamDecorator, type ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import type { User } from '@prisma/client';
+import type { Request } from 'express';
+import { AUTH_MESSAGES } from '@/auth/constants/auth.messages';
 
-export const Authorized = createParamDecorator((data: keyof User, ctx: ExecutionContext) => {
-	const request = ctx.switchToHttp().getRequest();
+export type AuthorizedUser = Omit<User, 'password'>;
 
-	const user = request.user;
+export type AuthorizedRequest = Request & {
+	user?: AuthorizedUser;
+};
 
-	return data ? user![data] : user;
-});
+export const Authorized = createParamDecorator<keyof AuthorizedUser | undefined>(
+	(data: keyof AuthorizedUser | undefined, ctx: ExecutionContext) => {
+		const request = ctx.switchToHttp().getRequest<AuthorizedRequest>();
+
+		const user = request.user;
+
+		if (!user) {
+			throw new UnauthorizedException(AUTH_MESSAGES.NOT_AUTHENTICATED);
+		}
+
+		return data === undefined ? user : user[data];
+	}
+);

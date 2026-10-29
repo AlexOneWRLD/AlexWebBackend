@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { IS_DEV_ENV } from '@/common/utils/is-dev.util';
+import { appConfig } from '@/config/app.config';
+import { databaseConfig } from '@/config/database.config';
+import { validateEnv } from '@/config/env.validation';
+import { jwtConfig } from '@/config/jwt.config';
+import { redisConfig } from '@/config/redis.config';
+import { sessionConfig } from '@/config/session.config';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UserModule } from './user/user.module';
@@ -9,8 +14,16 @@ import { UserModule } from './user/user.module';
 	imports: [
 		ConfigModule.forRoot({
 			isGlobal: true,
-			ignoreEnvFile: !IS_DEV_ENV
+
+			envFilePath: '.env',
+
+			cache: true,
+
+			validate: validateEnv,
+
+			load: [appConfig, jwtConfig, sessionConfig, databaseConfig, redisConfig]
 		}),
+
 		PrismaModule,
 		AuthModule,
 		UserModule

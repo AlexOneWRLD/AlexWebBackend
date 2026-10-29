@@ -5,7 +5,7 @@ export class ApiErrorNotFoundDto {
 		description: 'HTTP-код ошибки. Всегда 404.',
 		example: 404
 	})
-	statusCode: number;
+	statusCode!: number;
 
 	@ApiProperty({
 		description:
@@ -14,11 +14,11 @@ export class ApiErrorNotFoundDto {
 			'или недоступен для поиска.',
 		example: 'Пользователь не найден'
 	})
-	message: string;
+	message!: string;
 
 	@ApiProperty({
 		description: 'Стандартное название HTTP-ошибки',
 		example: 'Not Found'
 	})
-	error: string;
+	error!: string;
 }

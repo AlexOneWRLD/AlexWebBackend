@@ -16,6 +16,7 @@ import { ApiErrorBadRequestDto } from '@/common/dto/api-error-bad-request.dto';
 import { ApiErrorConflictDto } from '@/common/dto/api-error-conflict.dto';
 import { ApiErrorNotFoundDto } from '@/common/dto/api-error-not-found.dto';
 import { ApiErrorUnauthorizedResponseDto } from '@/common/dto/api-error-unauthorized.dto';
+import { ChangePasswordDto } from '@/user/dto/change-password.dto';
 import { DeleteUserResponseDto } from './dto/delete-user-response.dto';
 import { PaginatedUsersResponseDto } from './dto/paginated-users-response.dto';
 import { ProfileResponseDto } from './dto/user-response.dto';
@@ -30,8 +31,7 @@ import { UserService } from './user.service';
 export class UserController {
 	constructor(private readonly userService: UserService) {}
 
-	// GET /users/me
-
+	// GET /auth/@me
 	@Get('me')
 	@ApiOperation({
 		summary: 'Получение собственного профиля',
@@ -52,8 +52,6 @@ export class UserController {
 	public getMe(@Authorized('id') id: string) {
 		return this.userService.findById(id);
 	}
-
-	// GET /users
 
 	@Get()
 	@ApiOperation({
@@ -81,8 +79,6 @@ export class UserController {
 	public getUsers(@Query() query: UsersQueryDto) {
 		return this.userService.getUsers(query);
 	}
-
-	// PATCH /users/me
 
 	@Patch('me')
 	@ApiOperation({
@@ -122,7 +118,45 @@ export class UserController {
 		return this.userService.updateUser(id, dto);
 	}
 
-	// DELETE /users/me
+	@Patch('me/password')
+	@ApiOperation({
+		summary: 'Изменение пароля пользователя',
+		description:
+			'Позволяет авторизованному пользователю ' +
+			'изменить пароль после проверки текущего. ' +
+			'Новый пароль сохраняется в виде Argon2-хэша.'
+	})
+	@ApiBody({
+		type: ChangePasswordDto,
+		description: 'Поля который понадабятся для изменения пароля'
+	})
+	@ApiOkResponse({
+		description: 'Пароль успешно изменён',
+		schema: {
+			example: {
+				message: 'Пароль успешно изменён'
+			}
+		}
+	})
+	@ApiBadRequestResponse({
+		description:
+			'Неверный текущий пароль, несовпадающие новые ' + 'пароли или ошибка валидации',
+		type: ApiErrorBadRequestDto
+	})
+	@ApiUnauthorizedResponse({
+		description: 'Необходим действительный access JWT.',
+		type: ApiErrorUnauthorizedResponseDto
+	})
+	@ApiNotFoundResponse({
+		description: 'Аккаунт не найден в момент выполнения обновления.',
+		type: ApiErrorNotFoundDto
+	})
+	@ApiConflictResponse({
+		description: 'Пароль был изменен другим запросом'
+	})
+	public updatePassword(@Authorized('id') id: string, @Body() dto: ChangePasswordDto) {
+		return this.userService.updatePassword(id, dto);
+	}
 
 	@Delete('me')
 	@HttpCode(HttpStatus.OK)

@@ -121,18 +121,4 @@ describe('AuthController', () => {
 			expect(authServiceMock.logout).toHaveBeenCalledTimes(1);
 		});
 	});
-
-	describe('GET /auth/@me', () => {
-		it('Должен вернуть переданного пользователя', async () => {
-			const user = {
-				id: 'user-123',
-				login: 'alex',
-				email: 'alex@example.com'
-			};
-
-			const result = await controller.me(user);
-
-			expect(result).toEqual(user);
-		});
-	});
 });
