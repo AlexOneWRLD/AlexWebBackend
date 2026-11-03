@@ -10,12 +10,11 @@ import {
 	Max,
 	MaxLength,
 	Min,
-	MinLength,
-	Validate
+	MinLength
 } from 'class-validator';
 import { USER_RULES } from '@/common/constants/user-rules.constants';
 import { VALIDATION_MESSAGES } from '@/common/constants/validation.messages';
-import { IsPasswordMatchingConstraint } from '@/common/decorators/is-password-matching-constraint.decorator';
+import { Match } from '@/common/decorators/match.decorator';
 
 export class RegisterDto {
 	@ApiProperty({
@@ -153,7 +152,7 @@ export class RegisterDto {
 	@MaxLength(USER_RULES.PASSWORD.MAX_LENGTH, {
 		message: VALIDATION_MESSAGES.PASSWORD.MAX_LENGTH
 	})
-	@Validate(IsPasswordMatchingConstraint, {
+	@Match('password', {
 		message: VALIDATION_MESSAGES.PASSWORD.MISMATCH
 	})
 	passwordRepeat!: string;

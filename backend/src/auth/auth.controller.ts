@@ -1,4 +1,5 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Inject, Post, Res } from '@nestjs/common';
+import { ConfigType } from '@nestjs/config';
 import {
 	ApiBadRequestResponse,
 	ApiBody,
@@ -10,11 +11,17 @@ import {
 	ApiTags,
 	ApiUnauthorizedResponse
 } from '@nestjs/swagger';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
+import { AUTH_MESSAGES } from '@/auth/constants/auth.messages';
+import { AuthSession, AuthSessionContext } from '@/auth/decorators/auth-session.decorator';
 import { ApiErrorBadRequestDto } from '@/common/dto/api-error-bad-request.dto';
 import { ApiErrorConflictDto } from '@/common/dto/api-error-conflict.dto';
 import { ApiErrorUnauthorizedResponseDto } from '@/common/dto/api-error-unauthorized.dto';
-import { AuthService } from './auth.service';
+import { hashRefreshToken } from '@/common/utils/refresh-token.util';
+import { createCookieConfig, REFRESH_COOKIE } from '@/config/cookie.config';
+import { jwtConfig } from '@/config/jwt.config';
+import { sessionConfig } from '@/config/session.config';
+import { AuthResult, AuthService } from './auth.service';
 import { AuthDto } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
@@ -23,7 +30,19 @@ import { RegisterDto } from './dto/register.dto';
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-	constructor(private readonly authService: AuthService) {}
+	private readonly cookieConfig: ReturnType<typeof createCookieConfig>;
+
+	constructor(
+		private readonly authService: AuthService,
+
+		@Inject(sessionConfig.KEY)
+		sessionSettings: ConfigType<typeof sessionConfig>,
+
+		@Inject(jwtConfig.KEY)
+		jwtSettings: ConfigType<typeof jwtConfig>
+	) {
+		this.cookieConfig = createCookieConfig(sessionSettings, jwtSettings);
+	}
 
 	@Post('register')
 	@HttpCode(HttpStatus.CREATED)
@@ -58,11 +77,13 @@ export class AuthController {
 		type: ApiErrorConflictDto
 	})
 	public async register(
-		@Req() req: Request,
-		@Res({ passthrough: true }) res: Response,
-		@Body() dto: RegisterDto
+		@Body() dto: RegisterDto,
+		@AuthSession() session: AuthSessionContext,
+		@Res({ passthrough: true }) res: Response
 	) {
-		return this.authService.register(req, res, dto);
+		const auth = await this.authService.register(dto);
+
+		return this.startSession(session, res, auth);
 	}
 
 	@Post('login')
@@ -91,11 +112,13 @@ export class AuthController {
 		type: ApiErrorUnauthorizedResponseDto
 	})
 	public async login(
-		@Req() req: Request,
-		@Res({ passthrough: true }) res: Response,
-		@Body() dto: LoginDto
-	) {
-		return this.authService.login(req, res, dto);
+		@Body() dto: LoginDto,
+		@AuthSession() session: AuthSessionContext,
+		@Res({ passthrough: true }) res: Response
+	): Promise<{ accessToken: string }> {
+		const auth = await this.authService.login(dto);
+
+		return this.startSession(session, res, auth);
 	}
 
 	@Post('refresh')
@@ -123,8 +146,25 @@ export class AuthController {
 			'или не соответствует текущей сессии.',
 		type: ApiErrorUnauthorizedResponseDto
 	})
-	public async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-		return this.authService.refresh(req, res);
+	public async refresh(
+		@AuthSession() session: AuthSessionContext,
+		@Res({ passthrough: true }) res: Response
+	): Promise<{ accessToken: string }> {
+		const auth = await this.authService.refresh({
+			sessionUserId: session.userId,
+			refreshToken: session.refreshToken,
+			storedHash: session.refreshTokenHash
+		});
+
+		session.setRefreshTokenHash(hashRefreshToken(auth.refreshToken));
+
+		await session.save();
+
+		res.cookie(REFRESH_COOKIE, auth.refreshToken, this.cookieConfig.refreshCookieOptions);
+
+		return {
+			accessToken: auth.accessToken
+		};
 	}
 
 	@Post('logout')
@@ -141,7 +181,36 @@ export class AuthController {
 		description: 'Выход успешно выполнен.',
 		type: LogoutResponseDto
 	})
-	public logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-		return this.authService.logout(req, res);
+	public async logout(
+		@AuthSession() session: AuthSessionContext,
+		@Res({ passthrough: true }) res: Response
+	): Promise<{ message: string }> {
+		await session.destroy();
+
+		res.clearCookie(REFRESH_COOKIE, this.cookieConfig.cookieOptions);
+
+		res.clearCookie(this.cookieConfig.sessionName, this.cookieConfig.cookieOptions);
+
+		return {
+			message: AUTH_MESSAGES.LOGOUT_SUCCESS
+		};
+	}
+
+	private async startSession(
+		session: AuthSessionContext,
+		res: Response,
+		auth: AuthResult
+	): Promise<{ accessToken: string }> {
+		await session.regenerate();
+
+		session.authenticate(auth.userId, hashRefreshToken(auth.refreshToken));
+
+		await session.save();
+
+		res.cookie(REFRESH_COOKIE, auth.refreshToken, this.cookieConfig.refreshCookieOptions);
+
+		return {
+			accessToken: auth.accessToken
+		};
 	}
 }

@@ -6,6 +6,7 @@ import { validateEnv } from '@/config/env.validation';
 import { jwtConfig } from '@/config/jwt.config';
 import { redisConfig } from '@/config/redis.config';
 import { sessionConfig } from '@/config/session.config';
+import { RedisModule } from '@/redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UserModule } from './user/user.module';
@@ -23,6 +24,8 @@ import { UserModule } from './user/user.module';
 
 			load: [appConfig, jwtConfig, sessionConfig, databaseConfig, redisConfig]
 		}),
+
+		RedisModule,
 
 		PrismaModule,
 		AuthModule,

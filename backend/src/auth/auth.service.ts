@@ -1,43 +1,38 @@
-import { Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { ConfigType } from '@nestjs/config';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { verify } from 'argon2';
-import type { Request } from 'express';
-import type { Response } from 'express';
 import { AUTH_MESSAGES } from '@/auth/constants/auth.messages';
 import { LoginDto } from '@/auth/dto/login.dto';
 import { RegisterDto } from '@/auth/dto/register.dto';
 import { TokenService } from '@/auth/services/token.service';
-import { hashRefreshToken, matchesRefreshToken } from '@/common/utils/refresh-token.util';
-import { destroySession, regenerateSession, saveSession } from '@/common/utils/session.util';
-import { createCookieConfig, REFRESH_COOKIE } from '@/config/cookie.config';
-import { jwtConfig } from '@/config/jwt.config';
-import { sessionConfig } from '@/config/session.config';
+import { matchesRefreshToken } from '@/common/utils/refresh-token.util';
 import { UserService } from '@/user/user.service';
+
+export interface AuthResult {
+	userId: string;
+	accessToken: string;
+	refreshToken: string;
+}
+
+export interface RefreshInput {
+	sessionUserId: string | undefined;
+	refreshToken: string | undefined;
+	storedHash: string | undefined;
+}
 
 @Injectable()
 export class AuthService {
-	private readonly cookieConfig: ReturnType<typeof createCookieConfig>;
-
 	constructor(
 		private readonly userService: UserService,
-		private readonly tokenService: TokenService,
+		private readonly tokenService: TokenService
+	) {}
 
-		@Inject(sessionConfig.KEY)
-		sessionSettings: ConfigType<typeof sessionConfig>,
-
-		@Inject(jwtConfig.KEY)
-		jwtSettings: ConfigType<typeof jwtConfig>
-	) {
-		this.cookieConfig = createCookieConfig(sessionSettings, jwtSettings);
-	}
-
-	public async register(req: Request, res: Response, dto: RegisterDto) {
+	public async register(dto: RegisterDto): Promise<AuthResult> {
 		const newUser = await this.userService.createUser(dto);
 
-		return this.startSession(req, res, newUser.id);
+		return this.issueTokens(newUser.id);
 	}
 
-	public async login(req: Request, res: Response, dto: LoginDto) {
+	public async login(dto: LoginDto): Promise<AuthResult> {
 		const user = await this.userService.findByLogin(dto.login);
 
 		if (!user || user.deletedAt !== null) {
@@ -50,17 +45,29 @@ export class AuthService {
 			throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
 		}
 
-		return this.startSession(req, res, user.id);
+		return this.issueTokens(user.id);
 	}
 
-	public async logout(req: Request, res: Response) {
-		await destroySession(req);
+	public async refresh(input: RefreshInput): Promise<AuthResult> {
+		const { sessionUserId, refreshToken, storedHash } = input;
 
-		res.clearCookie(REFRESH_COOKIE, this.cookieConfig.cookieOptions);
+		if (!sessionUserId || !refreshToken || !storedHash) {
+			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
+		}
 
-		res.clearCookie(this.cookieConfig.sessionName, this.cookieConfig.cookieOptions);
+		const userId = await this.tokenService.verifyRefresh(refreshToken);
 
-		return { message: AUTH_MESSAGES.LOGOUT_SUCCESS };
+		if (userId !== sessionUserId) {
+			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
+		}
+
+		if (!matchesRefreshToken(refreshToken, storedHash)) {
+			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
+		}
+
+		const user = await this.validate(userId);
+
+		return this.issueTokens(user.id);
 	}
 
 	public async validate(id: string) {
@@ -75,61 +82,13 @@ export class AuthService {
 		}
 	}
 
-	public async refresh(req: Request, res: Response) {
-		const sessionUserId = req.session?.userId;
-
-		if (!sessionUserId) {
-			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
-		}
-
-		const refreshToken: unknown = req.cookies?.[REFRESH_COOKIE];
-
-		if (typeof refreshToken !== 'string' || refreshToken.length === 0) {
-			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
-		}
-
-		const userId = await this.tokenService.verifyRefresh(refreshToken);
-
-		if (userId !== sessionUserId) {
-			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
-		}
-
-		const storedHash = req.session.refreshTokenHash;
-
-		if (!storedHash || !matchesRefreshToken(refreshToken, storedHash)) {
-			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
-		}
-
-		const user = await this.validate(userId);
-
-		return this.issueAndSaveTokens(req, res, user.id);
-	}
-
-	private async startSession(req: Request, res: Response, userId: string) {
-		await regenerateSession(req);
-
-		req.session.userId = userId;
-
-		await saveSession(req);
-
-		return this.issueAndSaveTokens(req, res, userId);
-	}
-
-	private async issueAndSaveTokens(
-		req: Request,
-		res: Response,
-		userId: string
-	): Promise<{ accessToken: string }> {
+	private issueTokens(userId: string) {
 		const { accessToken, refreshToken } = this.tokenService.issuePair(userId);
 
-		req.session.refreshTokenHash = hashRefreshToken(refreshToken);
-
-		await saveSession(req);
-
-		res.cookie(REFRESH_COOKIE, refreshToken, this.cookieConfig.refreshCookieOptions);
-
 		return {
-			accessToken
+			userId,
+			accessToken,
+			refreshToken
 		};
 	}
 }

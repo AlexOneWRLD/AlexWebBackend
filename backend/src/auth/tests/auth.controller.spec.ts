@@ -1,7 +1,14 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import type { Request, Response } from 'express';
+import { Test, type TestingModule } from '@nestjs/testing';
+import type { Response } from 'express';
 import { AuthController } from '@/auth/auth.controller';
 import { AuthService } from '@/auth/auth.service';
+import type { AuthResult } from '@/auth/auth.service';
+import { AUTH_MESSAGES } from '@/auth/constants/auth.messages';
+import type { AuthSessionContext } from '@/auth/decorators/auth-session.decorator';
+import { hashRefreshToken } from '@/common/utils/refresh-token.util';
+import { REFRESH_COOKIE } from '@/config/cookie.config';
+import { jwtConfig } from '@/config/jwt.config';
+import { sessionConfig } from '@/config/session.config';
 
 describe('AuthController', () => {
 	let controller: AuthController;
@@ -9,19 +16,84 @@ describe('AuthController', () => {
 	const authServiceMock = {
 		register: jest.fn(),
 		login: jest.fn(),
-		refresh: jest.fn(),
-		logout: jest.fn()
+		refresh: jest.fn()
 	};
+
+	const sessionSettingsMock = {
+		name: 'session',
+		secret: 'test-session-secret',
+		maxAge: '7d',
+		httpOnly: true,
+		secure: false,
+		folder: 'session:',
+		domain: undefined
+	};
+
+	const jwtSettingsMock = {
+		secret: 'test-jwt-secret',
+		accessTtl: '2h',
+		refreshTtl: '7d',
+		algorithm: 'HS256'
+	};
+
+	const authResult: AuthResult = {
+		userId: 'user-123',
+		accessToken: 'test-access-token',
+		refreshToken: 'test-refresh-token'
+	};
+
+	// Создаём mock сессии без Express Request
+	function createSessionMock(overrides: Partial<AuthSessionContext> = {}): AuthSessionContext {
+		return {
+			userId: undefined,
+			refreshToken: undefined,
+			refreshTokenHash: undefined,
+
+			regenerate: jest.fn(async () => undefined),
+			authenticate: jest.fn(),
+			setRefreshTokenHash: jest.fn(),
+			save: jest.fn(async () => undefined),
+			destroy: jest.fn(async () => undefined),
+
+			...overrides
+		};
+	}
+
+	// Мокаем только нужные методы Response
+	function createResponseMock() {
+		const cookie = jest.fn();
+		const clearCookie = jest.fn();
+
+		const response = {
+			cookie,
+			clearCookie
+		} as unknown as Response;
+
+		return {
+			response,
+			cookie,
+			clearCookie
+		};
+	}
 
 	beforeEach(async () => {
 		jest.resetAllMocks();
 
 		const module: TestingModule = await Test.createTestingModule({
 			controllers: [AuthController],
+
 			providers: [
 				{
 					provide: AuthService,
 					useValue: authServiceMock
+				},
+				{
+					provide: sessionConfig.KEY,
+					useValue: sessionSettingsMock
+				},
+				{
+					provide: jwtConfig.KEY,
+					useValue: jwtSettingsMock
 				}
 			]
 		}).compile();
@@ -30,95 +102,247 @@ describe('AuthController', () => {
 	});
 
 	describe('POST /auth/register', () => {
-		it('Должен передать данные регистрации в сервис', async () => {
+		it('Регистрирует пользователя и создаёт сессию', async () => {
 			const dto = {
 				name: 'Alexander',
 				login: 'alex',
 				email: 'alex@example.com',
-				password: 'Password123',
-				passwordRepeat: 'Password123',
+				password: 'Password123!',
+				passwordRepeat: 'Password123!',
 				age: 28,
 				description: 'Developer'
 			};
 
-			const req = {} as Request;
-			const res = {} as Response;
+			const session = createSessionMock();
+			const { response, cookie } = createResponseMock();
 
-			const response = {
-				accessToken: 'test-access-token'
+			authServiceMock.register.mockResolvedValueOnce(authResult);
+
+			const result = await controller.register(dto, session, response);
+
+			expect(authServiceMock.register).toHaveBeenCalledWith(dto);
+
+			expect(session.regenerate).toHaveBeenCalledTimes(1);
+
+			expect(session.authenticate).toHaveBeenCalledWith(
+				authResult.userId,
+				hashRefreshToken(authResult.refreshToken)
+			);
+
+			expect(session.save).toHaveBeenCalledTimes(1);
+
+			expect(cookie).toHaveBeenCalledWith(
+				REFRESH_COOKIE,
+				authResult.refreshToken,
+				expect.objectContaining({
+					httpOnly: true,
+					secure: false,
+					sameSite: 'lax',
+					path: '/',
+					maxAge: 604800000
+				})
+			);
+
+			expect(result).toEqual({
+				accessToken: authResult.accessToken
+			});
+		});
+
+		it('Не создаёт сессию при ошибке регистрации', async () => {
+			const dto = {
+				name: 'Alexander',
+				login: 'alex',
+				email: 'alex@example.com',
+				password: 'Password123!',
+				passwordRepeat: 'Password123!',
+				age: 28,
+				description: 'Developer'
 			};
 
-			authServiceMock.register.mockResolvedValueOnce(response);
+			const session = createSessionMock();
+			const { response, cookie } = createResponseMock();
 
-			const result = await controller.register(req, res, dto);
+			authServiceMock.register.mockRejectedValueOnce(new Error('Ошибка регистрации'));
 
-			expect(result).toEqual(response);
+			await expect(controller.register(dto, session, response)).rejects.toThrow(
+				'Ошибка регистрации'
+			);
 
-			expect(authServiceMock.register).toHaveBeenCalledWith(req, res, dto);
+			expect(session.regenerate).not.toHaveBeenCalled();
+			expect(session.save).not.toHaveBeenCalled();
+			expect(cookie).not.toHaveBeenCalled();
 		});
 	});
 
 	describe('POST /auth/login', () => {
-		it('Должен передать данные входа в AuthService', async () => {
+		it('Авторизует пользователя и сохраняет сессию', async () => {
 			const dto = {
 				login: 'alex',
-				password: 'Password123'
+				password: 'Password123!'
 			};
 
-			const req = {} as Request;
-			const res = {} as Response;
+			const session = createSessionMock();
+			const { response, cookie } = createResponseMock();
 
-			const response = {
-				accessToken: 'test-access-token'
+			authServiceMock.login.mockResolvedValueOnce(authResult);
+
+			const result = await controller.login(dto, session, response);
+
+			expect(authServiceMock.login).toHaveBeenCalledWith(dto);
+
+			expect(session.regenerate).toHaveBeenCalledTimes(1);
+
+			expect(session.authenticate).toHaveBeenCalledWith(
+				authResult.userId,
+				hashRefreshToken(authResult.refreshToken)
+			);
+
+			expect(session.save).toHaveBeenCalledTimes(1);
+
+			expect(cookie).toHaveBeenCalledWith(
+				REFRESH_COOKIE,
+				authResult.refreshToken,
+				expect.any(Object)
+			);
+
+			expect(result).toEqual({
+				accessToken: authResult.accessToken
+			});
+		});
+
+		it('Не устанавливает cookie при ошибке сохранения сессии', async () => {
+			const dto = {
+				login: 'alex',
+				password: 'Password123!'
 			};
 
-			authServiceMock.login.mockResolvedValueOnce(response);
+			const session = createSessionMock({
+				save: jest.fn(async () => {
+					throw new Error('Redis unavailable');
+				})
+			});
 
-			const result = await controller.login(req, res, dto);
+			const { response, cookie } = createResponseMock();
 
-			expect(result).toEqual(response);
+			authServiceMock.login.mockResolvedValueOnce(authResult);
 
-			expect(authServiceMock.login).toHaveBeenCalledWith(req, res, dto);
+			await expect(controller.login(dto, session, response)).rejects.toThrow(
+				'Redis unavailable'
+			);
+
+			expect(cookie).not.toHaveBeenCalled();
 		});
 	});
 
 	describe('POST /auth/refresh', () => {
-		it('Должен обновить access токен', async () => {
-			const req = {} as Request;
-			const res = {} as Response;
+		it('Обновляет refresh JWT и сохраняет новый хэш', async () => {
+			const oldRefreshToken = 'old-refresh-token';
+			const oldHash = hashRefreshToken(oldRefreshToken);
 
-			const response = {
-				accessToken: 'test-access-token'
-			};
+			const session = createSessionMock({
+				userId: 'user-123',
+				refreshToken: oldRefreshToken,
+				refreshTokenHash: oldHash
+			});
 
-			authServiceMock.refresh.mockResolvedValueOnce(response);
+			const { response, cookie } = createResponseMock();
 
-			const result = await controller.refresh(req, res);
+			authServiceMock.refresh.mockResolvedValueOnce(authResult);
 
-			expect(result).toEqual(response);
+			const result = await controller.refresh(session, response);
 
-			expect(authServiceMock.refresh).toHaveBeenCalledWith(req, res);
+			expect(authServiceMock.refresh).toHaveBeenCalledWith({
+				sessionUserId: 'user-123',
+				refreshToken: oldRefreshToken,
+				storedHash: oldHash
+			});
+
+			expect(session.setRefreshTokenHash).toHaveBeenCalledWith(
+				hashRefreshToken(authResult.refreshToken)
+			);
+
+			expect(session.save).toHaveBeenCalledTimes(1);
+
+			expect(cookie).toHaveBeenCalledWith(
+				REFRESH_COOKIE,
+				authResult.refreshToken,
+				expect.any(Object)
+			);
+
+			expect(result).toEqual({
+				accessToken: authResult.accessToken
+			});
+		});
+
+		it('Не обновляет сессию при ошибке проверки refresh JWT', async () => {
+			const session = createSessionMock({
+				userId: 'user-123',
+				refreshToken: 'invalid-token',
+				refreshTokenHash: 'stored-hash'
+			});
+
+			const { response, cookie } = createResponseMock();
+
+			authServiceMock.refresh.mockRejectedValueOnce(new Error('Invalid refresh token'));
+
+			await expect(controller.refresh(session, response)).rejects.toThrow(
+				'Invalid refresh token'
+			);
+
+			expect(session.setRefreshTokenHash).not.toHaveBeenCalled();
+
+			expect(session.save).not.toHaveBeenCalled();
+			expect(cookie).not.toHaveBeenCalled();
 		});
 	});
 
 	describe('POST /auth/logout', () => {
-		it('Должен выйти из сессии пользователя и погасить токен', async () => {
-			const req = {} as Request;
-			const res = {} as Response;
+		it('Уничтожает сессию и очищает cookies', async () => {
+			const session = createSessionMock();
 
-			const response = {
-				message: 'Выход выполнен'
-			};
+			const { response, clearCookie } = createResponseMock();
 
-			authServiceMock.logout.mockResolvedValueOnce(response);
+			const result = await controller.logout(session, response);
 
-			const result = await controller.logout(req, res);
+			expect(session.destroy).toHaveBeenCalledTimes(1);
 
-			expect(result).toEqual(response);
+			expect(clearCookie).toHaveBeenCalledTimes(2);
 
-			expect(authServiceMock.logout).toHaveBeenCalledWith(req, res);
+			expect(clearCookie).toHaveBeenCalledWith(
+				REFRESH_COOKIE,
+				expect.objectContaining({
+					httpOnly: true,
+					path: '/'
+				})
+			);
 
-			expect(authServiceMock.logout).toHaveBeenCalledTimes(1);
+			expect(clearCookie).toHaveBeenCalledWith(
+				sessionSettingsMock.name,
+				expect.objectContaining({
+					httpOnly: true,
+					path: '/'
+				})
+			);
+
+			expect(result).toEqual({
+				message: AUTH_MESSAGES.LOGOUT_SUCCESS
+			});
+		});
+
+		it('Не очищает cookies при ошибке удаления сессии', async () => {
+			const session = createSessionMock({
+				destroy: jest.fn(async () => {
+					throw new Error('Session destroy failed');
+				})
+			});
+
+			const { response, clearCookie } = createResponseMock();
+
+			await expect(controller.logout(session, response)).rejects.toThrow(
+				'Session destroy failed'
+			);
+
+			expect(clearCookie).not.toHaveBeenCalled();
 		});
 	});
 });

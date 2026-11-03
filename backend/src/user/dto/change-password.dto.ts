@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 import { USER_RULES } from '@/common/constants/user-rules.constants';
+import { VALIDATION_MESSAGES } from '@/common/constants/validation.messages';
+import { Match } from '@/common/decorators/match.decorator';
 
 export class ChangePasswordDto {
 	@ApiProperty({
@@ -40,5 +42,8 @@ export class ChangePasswordDto {
 	@IsNotEmpty()
 	@MinLength(USER_RULES.PASSWORD.MIN_LENGTH)
 	@MaxLength(USER_RULES.PASSWORD.MAX_LENGTH)
+	@Match('newPassword', {
+		message: VALIDATION_MESSAGES.PASSWORD.MISMATCH
+	})
 	newPasswordRepeat!: string;
 }
