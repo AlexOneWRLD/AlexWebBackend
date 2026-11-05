@@ -330,6 +330,9 @@ backend/
 │   ├── types/                   # Расширения типов Express Session
 │   ├── app.module.ts
 │   └── main.ts
+├── src/redis/
+│		├── redis.module.ts
+│		└── redis.service.ts
 └── package.json
 ```
 

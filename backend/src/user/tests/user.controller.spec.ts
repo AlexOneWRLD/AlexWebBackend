@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import type { ChangePasswordDto } from '@/user/dto/change-password.dto';
+import type { UserUpdateDto } from '@/user/dto/user-update.dto';
 import { UserController } from '@/user/user.controller';
 import { UserService } from '@/user/user.service';
 
@@ -9,6 +11,7 @@ describe('UserController', () => {
 		findById: jest.fn(),
 		getUsers: jest.fn(),
 		updateUser: jest.fn(),
+		updatePassword: jest.fn(),
 		deleteUser: jest.fn()
 	};
 
@@ -82,11 +85,10 @@ describe('UserController', () => {
 		it('Должен обновить данные пользователя', async () => {
 			const userId = 'user-123';
 
-			const dto = {
+			const dto: UserUpdateDto = {
 				name: 'John Doe',
 				login: 'AlexOneWRLD',
-				email: '1231@wasdas',
-				password: '123456',
+				email: '1231@mail.ru',
 				age: 24,
 				description: 'Backend Developer'
 			};
@@ -95,8 +97,7 @@ describe('UserController', () => {
 				id: userId,
 				name: 'John Doe',
 				login: 'AlexOneWRLD',
-				email: '1231@wasdas',
-				password: '123456',
+				email: '1231@mail.ru',
 				age: 24,
 				description: 'Backend Developer'
 			};
@@ -108,6 +109,32 @@ describe('UserController', () => {
 			expect(result).toEqual(updatedUser);
 
 			expect(userServiceMock.updateUser).toHaveBeenCalledWith(userId, dto);
+		});
+	});
+
+	describe('PATCH /users/me/password', () => {
+		it('Должен обновить пароль пользователя', async () => {
+			const userId = 'user-123';
+
+			const dto: ChangePasswordDto = {
+				currentPassword: '123456',
+				newPassword: '12345678',
+				newPasswordRepeat: '12345678'
+			};
+
+			const updatedUser = {
+				currentPassword: '123456',
+				newPassword: '12345678',
+				newPasswordRepeat: '12345678'
+			};
+
+			userServiceMock.updatePassword.mockResolvedValueOnce(updatedUser);
+
+			const result = await controller.updatePassword(userId, dto);
+
+			expect(result).toEqual(updatedUser);
+
+			expect(userServiceMock.updatePassword).toHaveBeenCalledWith(userId, dto);
 		});
 	});
 

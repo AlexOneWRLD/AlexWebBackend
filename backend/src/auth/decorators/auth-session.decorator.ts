@@ -8,11 +8,15 @@ export interface AuthSessionContext {
 	readonly refreshTokenHash: string | undefined;
 	readonly refreshToken: string | undefined;
 
-	regenerate(): Promise<void>;
-	authenticate(userId: string, hash: string): void;
-	setRefreshTokenHash(hash: string): void;
-	save(): Promise<void>;
-	destroy(): Promise<void>;
+	regenerate: () => Promise<void>;
+
+	authenticate: (userId: string, hash: string) => void;
+
+	setRefreshTokenHash: (hash: string) => void;
+
+	save: () => Promise<void>;
+
+	destroy: () => Promise<void>;
 }
 
 export const AuthSession = createParamDecorator<undefined>(

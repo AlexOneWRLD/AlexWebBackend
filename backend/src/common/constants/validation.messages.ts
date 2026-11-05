@@ -60,5 +60,31 @@ export const VALIDATION_MESSAGES = {
 		MAX_LENGTH: `Пароль не должен превышать ` + `${USER_RULES.PASSWORD.MAX_LENGTH} символов`,
 
 		MISMATCH: 'Пароли не совпадают'
+	},
+
+	NEW_PASSWORD: {
+		REQUIRED: 'Новый пароль обязателен для заполнения',
+		STRING: 'Новый пароль должен быть строкой',
+
+		MIN_LENGTH:
+			`Новый пароль должен содержать минимум ` + `${USER_RULES.PASSWORD.MIN_LENGTH} символов`,
+
+		MAX_LENGTH:
+			`Новый пароль не должен превышать ` + `${USER_RULES.PASSWORD.MAX_LENGTH} символов`
+	},
+
+	NEW_PASSWORD_REPEAT: {
+		REQUIRED: 'Подтверждение нового пароля обязателен для заполнения',
+		STRING: 'Подтверждение нового пароля должен быть строкой',
+
+		MIN_LENGTH:
+			`Подтверждение нового пароля должен содержать минимум ` +
+			`${USER_RULES.PASSWORD.MIN_LENGTH} символов`,
+
+		MAX_LENGTH:
+			`Подтверждение нового пароля не должен превышать ` +
+			`${USER_RULES.PASSWORD.MAX_LENGTH} символов`,
+
+		MISMATCH: 'Подтверждение нового пароля не совпадает с новым паролем'
 	}
 } as const;

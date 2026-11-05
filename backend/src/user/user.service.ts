@@ -67,14 +67,12 @@ export class UserService {
 
 	//TODO: доработать работу с картинкой и балансом
 	public async updateUser(id: string, dto: UserUpdateDto) {
+		if (Object.keys(dto).length === 0) {
+			throw new BadRequestException(USER_MESSAGES.UPDATE_EMPTY);
+		}
+
 		try {
-			return await this.userRepository.update(id, {
-				name: dto.name,
-				email: dto.email,
-				login: dto.login,
-				age: dto.age,
-				description: dto.description
-			});
+			return await this.userRepository.update(id, dto);
 		} catch (error) {
 			throwPrismaError(error);
 		}
@@ -82,14 +80,6 @@ export class UserService {
 
 	public async updatePassword(id: string, dto: ChangePasswordDto) {
 		const { currentPassword, newPassword, newPasswordRepeat } = dto;
-
-		if (newPassword !== newPasswordRepeat) {
-			throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
-		}
-
-		if (currentPassword == newPassword) {
-			throw new BadRequestException(USER_MESSAGES.PASSWORD_REUSED);
-		}
 
 		const user = await this.userRepository.findPasswordById(id);
 
@@ -101,6 +91,14 @@ export class UserService {
 
 		if (!isCurrentPasswordValid) {
 			throw new BadRequestException(USER_MESSAGES.INVALID_CURRENT_PASSWORD);
+		}
+
+		if (newPassword !== newPasswordRepeat) {
+			throw new BadRequestException(USER_MESSAGES.PASSWORD_MISMATCH);
+		}
+
+		if (currentPassword == newPassword) {
+			throw new BadRequestException(USER_MESSAGES.PASSWORD_REUSED);
 		}
 
 		const result = await this.userRepository.updatePassword(

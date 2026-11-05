@@ -18,55 +18,65 @@ async function bootstrap() {
 
 	app.enableShutdownHooks(['SIGINT', 'SIGTERM']);
 
-	const appSettings = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
+	try {
+		const appSettings = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
 
-	const jwtSettings = app.get<ConfigType<typeof jwtConfig>>(jwtConfig.KEY);
+		const jwtSettings = app.get<ConfigType<typeof jwtConfig>>(jwtConfig.KEY);
 
-	const sessionSettings = app.get<ConfigType<typeof sessionConfig>>(sessionConfig.KEY);
+		const sessionSettings = app.get<ConfigType<typeof sessionConfig>>(sessionConfig.KEY);
 
-	const redisService = app.get(RedisService);
+		const redisService = app.get(RedisService);
 
-	const cookieConfig = createCookieConfig(sessionSettings, jwtSettings);
+		const cookieConfig = createCookieConfig(sessionSettings, jwtSettings);
 
-	await redisService.client.ping();
+		await redisService.client.ping();
 
-	app.use(cookieParser(appSettings.cookiesSecret));
+		app.use(cookieParser(appSettings.cookiesSecret));
 
-	app.useGlobalPipes(
-		new ValidationPipe({
-			transform: true,
-			whitelist: true,
-			forbidNonWhitelisted: true
-		})
-	);
-
-	app.useGlobalFilters(new AllExceptionsFilter());
-
-	app.use(
-		session({
-			secret: sessionSettings.secret,
-			name: sessionSettings.name,
-
-			resave: false,
-			saveUninitialized: false,
-
-			cookie: cookieConfig.sessionCookieOptions,
-
-			store: new RedisStore({
-				client: redisService.client,
-				prefix: sessionSettings.folder
+		app.useGlobalPipes(
+			new ValidationPipe({
+				transform: true,
+				whitelist: true,
+				forbidNonWhitelisted: true
 			})
-		})
-	);
+		);
 
-	app.enableCors({
-		origin: appSettings.allowedOrigin,
-		credentials: true
-	});
+		app.useGlobalFilters(new AllExceptionsFilter());
 
-	setupSwagger(app);
+		app.use(
+			session({
+				secret: sessionSettings.secret,
+				name: sessionSettings.name,
 
-	await app.listen(appSettings.port);
+				resave: false,
+				saveUninitialized: false,
+
+				cookie: cookieConfig.sessionCookieOptions,
+
+				store: new RedisStore({
+					client: redisService.client,
+					prefix: sessionSettings.folder
+				})
+			})
+		);
+
+		app.enableCors({
+			origin: appSettings.allowedOrigin,
+			credentials: true
+		});
+
+		setupSwagger(app);
+
+		await app.listen(appSettings.port);
+	} catch (error: unknown) {
+		try {
+			await app.close();
+		} catch (closeError: unknown) {
+			console.error('Ошибка закрытия приложения:', closeError);
+		}
+
+		throw error;
+	}
 }
 
 bootstrap().catch((error: unknown) => {

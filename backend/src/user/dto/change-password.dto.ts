@@ -12,10 +12,14 @@ export class ChangePasswordDto {
 		maxLength: USER_RULES.PASSWORD.MAX_LENGTH,
 		format: 'password'
 	})
-	@IsString()
-	@IsNotEmpty()
-	@MinLength(USER_RULES.PASSWORD.MIN_LENGTH)
-	@MaxLength(USER_RULES.PASSWORD.MAX_LENGTH)
+	@IsString({
+		message: VALIDATION_MESSAGES.PASSWORD.STRING
+	})
+	@IsNotEmpty({
+		message: VALIDATION_MESSAGES.PASSWORD.REQUIRED
+	})
+	@MinLength(USER_RULES.PASSWORD.MIN_LENGTH, { message: VALIDATION_MESSAGES.PASSWORD.MIN_LENGTH })
+	@MaxLength(USER_RULES.PASSWORD.MAX_LENGTH, { message: VALIDATION_MESSAGES.PASSWORD.MAX_LENGTH })
 	currentPassword!: string;
 
 	@ApiProperty({
@@ -25,10 +29,18 @@ export class ChangePasswordDto {
 		maxLength: USER_RULES.PASSWORD.MAX_LENGTH,
 		format: 'password'
 	})
-	@IsString()
-	@IsNotEmpty()
-	@MinLength(USER_RULES.PASSWORD.MIN_LENGTH)
-	@MaxLength(USER_RULES.PASSWORD.MAX_LENGTH)
+	@IsString({
+		message: VALIDATION_MESSAGES.NEW_PASSWORD.STRING
+	})
+	@IsNotEmpty({
+		message: VALIDATION_MESSAGES.NEW_PASSWORD.REQUIRED
+	})
+	@MinLength(USER_RULES.PASSWORD.MIN_LENGTH, {
+		message: VALIDATION_MESSAGES.NEW_PASSWORD.MIN_LENGTH
+	})
+	@MaxLength(USER_RULES.PASSWORD.MAX_LENGTH, {
+		message: VALIDATION_MESSAGES.NEW_PASSWORD.MAX_LENGTH
+	})
 	newPassword!: string;
 
 	@ApiProperty({
@@ -38,12 +50,20 @@ export class ChangePasswordDto {
 		maxLength: USER_RULES.PASSWORD.MAX_LENGTH,
 		format: 'password'
 	})
-	@IsString()
-	@IsNotEmpty()
-	@MinLength(USER_RULES.PASSWORD.MIN_LENGTH)
-	@MaxLength(USER_RULES.PASSWORD.MAX_LENGTH)
+	@IsString({
+		message: VALIDATION_MESSAGES.NEW_PASSWORD_REPEAT.STRING
+	})
+	@IsNotEmpty({
+		message: VALIDATION_MESSAGES.NEW_PASSWORD_REPEAT.REQUIRED
+	})
+	@MinLength(USER_RULES.PASSWORD.MIN_LENGTH, {
+		message: VALIDATION_MESSAGES.NEW_PASSWORD_REPEAT.MIN_LENGTH
+	})
+	@MaxLength(USER_RULES.PASSWORD.MAX_LENGTH, {
+		message: VALIDATION_MESSAGES.NEW_PASSWORD_REPEAT.MAX_LENGTH
+	})
 	@Match('newPassword', {
-		message: VALIDATION_MESSAGES.PASSWORD.MISMATCH
+		message: VALIDATION_MESSAGES.NEW_PASSWORD_REPEAT.MISMATCH
 	})
 	newPasswordRepeat!: string;
 }

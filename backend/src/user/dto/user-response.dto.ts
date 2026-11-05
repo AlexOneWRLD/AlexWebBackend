@@ -22,16 +22,9 @@ export class UserResponseDto {
 	name!: string;
 
 	@ApiProperty({
-		description: 'Электронная почта пользователя',
-		format: 'email',
-		example: 'alex@example.com'
-	})
-	email!: string;
-
-	@ApiProperty({
 		description: 'Возраст пользователя',
 		type: Number,
-		nullable: true,
+		nullable: false,
 		example: 28
 	})
 	age!: number;
@@ -39,7 +32,7 @@ export class UserResponseDto {
 	@ApiProperty({
 		description: 'Описание профиля',
 		type: String,
-		nullable: true,
+		nullable: false,
 		maxLength: 1000,
 		example: 'Backend Developer'
 	})
@@ -77,6 +70,13 @@ export class UserResponseDto {
 }
 
 export class ProfileResponseDto extends UserResponseDto {
+	@ApiProperty({
+		description: 'Электронная почта пользователя',
+		format: 'email',
+		example: 'alex@example.com'
+	})
+	email!: string;
+
 	@ApiProperty({
 		description: 'Баланс пользователя в десятичном формате',
 		type: String,

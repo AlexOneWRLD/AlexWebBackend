@@ -51,7 +51,7 @@ export class TokenService {
 
 		try {
 			payload = await this.jwtService.verifyAsync<Record<string, unknown>>(token, {
-				algorithms: ['HS256']
+				algorithms: [this.jwtSettings.algorithm]
 			});
 		} catch (error: unknown) {
 			this.logger.debug(

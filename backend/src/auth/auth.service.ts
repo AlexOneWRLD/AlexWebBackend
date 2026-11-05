@@ -57,11 +57,11 @@ export class AuthService {
 
 		const userId = await this.tokenService.verifyRefresh(refreshToken);
 
-		if (userId !== sessionUserId) {
+		if (!matchesRefreshToken(refreshToken, storedHash)) {
 			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
 		}
 
-		if (!matchesRefreshToken(refreshToken, storedHash)) {
+		if (userId !== sessionUserId) {
 			throw new UnauthorizedException(AUTH_MESSAGES.SESSION_EXPIRED);
 		}
 

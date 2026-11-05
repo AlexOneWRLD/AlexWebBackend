@@ -49,11 +49,11 @@ describe('AuthController', () => {
 			refreshToken: undefined,
 			refreshTokenHash: undefined,
 
-			regenerate: jest.fn(async () => undefined),
+			regenerate: jest.fn(() => Promise.resolve()),
 			authenticate: jest.fn(),
 			setRefreshTokenHash: jest.fn(),
-			save: jest.fn(async () => undefined),
-			destroy: jest.fn(async () => undefined),
+			save: jest.fn(() => Promise.resolve()),
+			destroy: jest.fn(() => Promise.resolve()),
 
 			...overrides
 		};
@@ -217,9 +217,7 @@ describe('AuthController', () => {
 			};
 
 			const session = createSessionMock({
-				save: jest.fn(async () => {
-					throw new Error('Redis unavailable');
-				})
+				save: jest.fn(() => Promise.reject(new Error('Redis unavailable')))
 			});
 
 			const { response, cookie } = createResponseMock();
@@ -331,9 +329,7 @@ describe('AuthController', () => {
 
 		it('Не очищает cookies при ошибке удаления сессии', async () => {
 			const session = createSessionMock({
-				destroy: jest.fn(async () => {
-					throw new Error('Session destroy failed');
-				})
+				destroy: jest.fn(() => Promise.reject(new Error('Session destroy failed')))
 			});
 
 			const { response, clearCookie } = createResponseMock();

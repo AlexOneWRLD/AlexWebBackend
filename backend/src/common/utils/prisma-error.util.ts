@@ -1,5 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { USER_MESSAGES } from '@/user/constants/user.messages';
 
 export type PrismaErrorCode = 'P2002' | 'P2025';
 
@@ -14,19 +15,21 @@ export function throwPrismaError(error: unknown): never {
 	if (prismaErrorUtil(error, 'P2002')) {
 		const target: unknown = error.meta?.target;
 
-		const fields = Array.isArray(target)
-			? target.filter((field: unknown): field is string => typeof field === 'string')
-			: [];
+		const targets = Array.isArray(target)
+			? target.filter((value): value is string => typeof value === 'string')
+			: typeof target === 'string'
+				? [target]
+				: [];
 
-		if (fields.includes('login')) {
-			throw new ConflictException('Этот логин уже занят');
+		if (targets.includes('login') || targets.includes('users_active_login_unique')) {
+			throw new ConflictException(USER_MESSAGES.LOGIN_TAKEN);
 		}
 
-		if (fields.includes('email')) {
-			throw new ConflictException('Этот email уже зарегистрирован');
+		if (targets.includes('email') || targets.includes('users_active_email_unique')) {
+			throw new ConflictException(USER_MESSAGES.EMAIL_TAKEN);
 		}
 
-		throw new ConflictException('Нарушено ограничение уникальности');
+		throw new ConflictException(USER_MESSAGES.UNIQUE_CONFLICT);
 	}
 
 	if (prismaErrorUtil(error, 'P2025')) {
